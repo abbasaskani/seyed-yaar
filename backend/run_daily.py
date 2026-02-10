@@ -8,6 +8,9 @@ import sys
 import logging
 from datetime import datetime
 from pathlib import Path
+- name: Test imports
+  run: |
+    python backend/test_import.py
 
 # Setup logging
 logging.basicConfig(
