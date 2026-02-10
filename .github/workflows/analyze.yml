@@ -1,9 +1,7 @@
 name: Tuna Hotspot Analysis
 
 on:
-  schedule:
-    - cron: '0 12 * * *'  # هر روز ساعت 12 ظهر UTC
-  workflow_dispatch:  # اجازه اجرای دستی
+  workflow_dispatch:  # فقط اجرای دستی
 
 jobs:
   analyze:
@@ -21,34 +19,43 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install copernicusmarine==0.6.0
+        pip install xarray pandas numpy
+        
+        # Verify installation
+        pip show copernicusmarine
+        echo "Installed version:"
+        python -c "import copernicusmarine; print(dir(copernicusmarine))"
     
     - name: Create directories
       run: |
         mkdir -p data
         mkdir -p results
+        ls -la
     
     - name: Run analysis
       env:
         COPERNICUS_USERNAME: ${{ secrets.COPERNICUS_USERNAME }}
         COPERNICUS_PASSWORD: ${{ secrets.COPERNICUS_PASSWORD }}
       run: |
+        echo "Running analysis..."
         python backend/run_daily.py
     
-    - name: Upload results
+    - name: Show results
       if: always()
+      run: |
+        echo "=== Results directory contents ==="
+        ls -la results/
+        echo ""
+        echo "=== Last result file ==="
+        if ls results/*.txt 1> /dev/null 2>&1; then
+          cat results/$(ls -t results/*.txt | head -1)
+        else
+          echo "No result files found"
+        fi
+    
+    - name: Upload results
       uses: actions/upload-artifact@v3
       with:
         name: analysis-results
         path: results/
-    
-    - name: Success notification
-      if: success()
-      run: |
-        echo "✅ Analysis completed successfully!"
-    
-    - name: Failure notification
-      if: failure()
-      run: |
-        echo "❌ Analysis failed!"
-        exit 1
