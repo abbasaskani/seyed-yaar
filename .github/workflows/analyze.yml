@@ -2,6 +2,8 @@ name: تحلیل داده‌های ماهی تن
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # هر روز نیمه‌شب
 
 jobs:
   analyze:
@@ -18,59 +20,59 @@ jobs:
     
     - name: نصب کتابخانه‌ها
       run: |
-        pip install requests xarray netCDF4 numpy pandas
+        pip install xarray netCDF4 numpy pandas
         echo "📦 کتابخانه‌های نصب شده:"
-        pip list | grep -E "(requests|xarray|netCDF4|numpy|pandas)"
+        pip list | grep -E "(xarray|netCDF4|numpy|pandas)"
     
     - name: ایجاد پوشه‌ها
       run: |
-        mkdir -p data/copernicus
+        mkdir -p data/noaa_sst
         mkdir -p results
-        echo "📁 ساختار پوشه‌ها:"
-        find . -type d -name "data" -o -name "results" | sort
+        echo "📁 ساختار پوشه‌ها ایجاد شد"
     
-    - name: اجرای دانلود داده
-      env:
-        COPERNICUS_USERNAME: ${{ secrets.COPERNICUS_USERNAME }}
-        COPERNICUS_PASSWORD: ${{ secrets.COPERNICUS_PASSWORD }}
+    - name: تست اتصال اینترنت
       run: |
-        echo "🌊 شروع دانلود داده از Copernicus Marine..."
-        python backend/download_real_data.py
+        echo "🔍 تست اتصال به اینترنت..."
+        timeout 10 curl -I https://noaa.gov || echo "خطای curl، ادامه می‌دهیم..."
     
-    - name: بررسی فایل‌های دانلود شده
+    - name: اجرای تحلیل داده
+      run: |
+        echo "🌊 شروع تحلیل داده‌های دریایی..."
+        python backend/download_public_data.py
+    
+    - name: نمایش نتایج
       run: |
         echo ""
-        echo "📊 وضعیت فایل‌ها:"
-        echo "----------------"
+        echo "📋 نتایج نهایی:"
+        echo "--------------"
         
-        echo "1. پوشه data:"
-        find data -type f 2>/dev/null || echo "   (خالی)"
-        
-        echo ""
-        echo "2. حجم فایل‌ها:"
-        if [ -d "data/copernicus" ]; then
-          du -sh data/copernicus/*
-        else
-          echo "   پوشه copernicus وجود ندارد"
-        fi
+        # نمایش فایل‌های داده
+        echo "📁 محتوای پوشه data:"
+        find data -name "*.nc" -type f 2>/dev/null | head -5 || echo "   (فایلی یافت نشد)"
         
         echo ""
-        echo "3. اطلاعات فایل NetCDF:"
-        if ls data/copernicus/*.nc 1> /dev/null 2>&1; then
-          for file in data/copernicus/*.nc; do
-            echo "   📄 $file"
-            echo "      حجم: $(ls -lh "$file" | awk '{print $5}')"
-            echo "      تاریخ: $(ls -lh "$file" | awk '{print $6, $7, $8}')"
-          done
-        else
-          echo "   هیچ فایل NetCDF یافت نشد"
+        echo "📄 محتوای پوشه results:"
+        ls -la results/ 2>/dev/null || echo "   پوشه results خالی است"
+        
+        # نمایش آخرین فایل JSON
+        if ls results/*.json 1> /dev/null 2>&1; then
+          echo ""
+          echo "📊 نتایج تحلیل:"
+          latest_json=$(ls -t results/*.json | head -1)
+          cat "$latest_json"
         fi
     
     - name: ذخیره نتایج
       uses: actions/upload-artifact@v4
       with:
-        name: داده‌های-دریایی
+        name: نتایج-ماهی‌گیری
         path: |
           data/
           results/
-        retention-days: 7
+        retention-days: 30
+    
+    - name: ارسال نوتیفیکیشن
+      if: success()
+      run: |
+        echo "✅ تحلیل با موفقیت انجام شد!"
+        echo "📊 نتایج در بخش Artifacts قابل دانلود است"
