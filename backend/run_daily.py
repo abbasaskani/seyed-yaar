@@ -20,9 +20,6 @@ if username and password:
     print(f"   نام کاربری: {username[:3]}***")
 else:
     print("❌ خطا: اطلاعات ورود پیدا نشد")
-    print("   لطفاً در تنظیمات گیت‌هاب، Secrets را تنظیم کنید:")
-    print("   ۱. به Settings → Secrets and variables → Actions بروید")
-    print("   ۲. COPERNICUS_USERNAME و COPERNICUS_PASSWORD را اضافه کنید")
     sys.exit(1)
 
 # ۲. ایجاد پوشه‌ها
@@ -31,14 +28,15 @@ try:
     Path("data").mkdir(exist_ok=True)
     Path("results").mkdir(exist_ok=True)
     print("✅ پوشه‌ها ایجاد شدند")
-except:
-    print("⚠️ خطا در ایجاد پوشه‌ها")
+except Exception as e:
+    print(f"⚠️ خطا در ایجاد پوشه‌ها: {e}")
 
 # ۳. ایجاد فایل خروجی
 print("\n📝 ایجاد فایل نتایج...")
 try:
     now = datetime.datetime.now()
-    filename = f"نتیجه_{now.strftime('%Y-%m-%d_%H-%M')}.txt"
+    # استفاده از نام انگلیسی برای جلوگیری از مشکل مسیر
+    filename = f"result_{now.strftime('%Y-%m-%d_%H-%M')}.txt"
     output_path = Path("results") / filename
     
     with open(output_path, "w", encoding="utf-8") as f:
@@ -48,34 +46,23 @@ try:
         f.write(f"تاریخ: {now.strftime('%Y/%m/%d %H:%M')}\n")
         f.write(f"وضعیت: موفق\n")
         f.write(f"نام کاربری: {username[:3]}***\n")
-        f.write(f"پوشه داده: data/\n")
-        f.write(f"پوشه نتایج: results/\n")
+        f.write(f"فایل: {filename}\n")
         f.write("=" * 40 + "\n")
-        f.write("\nمراحل بعدی:\n")
-        f.write("۱. دانلود داده‌های دمای سطح دریا\n")
-        f.write("۲. تحلیل مناطق با دمای مناسب\n")
-        f.write("۳. تولید نقشه‌های ماهی تن\n")
     
     print(f"✅ فایل ایجاد شد: {filename}")
-    print(f"   مسیر: results/{filename}")
+    print(f"   مسیر کامل: {output_path.absolute()}")
     
 except Exception as e:
     print(f"❌ خطا در ایجاد فایل: {e}")
+    sys.exit(1)
 
-# ۴. لیست کردن فایل‌های ایجاد شده
-print("\n📊 لیست فایل‌های موجود:")
-try:
-    if Path("results").exists():
-        files = list(Path("results").glob("*.txt"))
-        if files:
-            for file in files[-3:]:  # ۳ فایل آخر
-                print(f"   • {file.name}")
-        else:
-            print("   (هیچ فایلی موجود نیست)")
-    else:
-        print("   پوشه results وجود ندارد")
-except:
-    pass
+# ۴. تأیید ایجاد فایل
+print("\n📊 تأیید ایجاد فایل...")
+if output_path.exists():
+    print(f"✅ فایل در محل مورد نظر وجود دارد")
+    print(f"   حجم فایل: {output_path.stat().st_size} بایت")
+else:
+    print(f"❌ فایل ایجاد نشده است")
 
 print("\n" + "=" * 50)
 print("تحلیل با موفقیت انجام شد!")
