@@ -1,4 +1,4 @@
-name: Tuna Hotspot Analysis
+name: تحلیل داده‌های ماهی تن
 
 on:
   workflow_dispatch:  # فقط اجرای دستی
@@ -8,54 +8,52 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
+    # مرحله ۱: دریافت کد
+    - name: دریافت کد
       uses: actions/checkout@v3
     
-    - name: Setup Python
+    # مرحله ۲: نصب پایتون
+    - name: نصب پایتون
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
     
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install copernicusmarine==0.6.0
-        pip install xarray pandas numpy
-        
-        # Verify installation
-        pip show copernicusmarine
-        echo "Installed version:"
-        python -c "import copernicusmarine; print(dir(copernicusmarine))"
-    
-    - name: Create directories
+    # مرحله ۳: ایجاد پوشه‌ها
+    - name: ایجاد پوشه‌ها
       run: |
         mkdir -p data
         mkdir -p results
+        echo "📁 پوشه‌ها ایجاد شدند"
         ls -la
     
-    - name: Run analysis
+    # مرحله ۴: اجرای تحلیل
+    - name: اجرای تحلیل
       env:
         COPERNICUS_USERNAME: ${{ secrets.COPERNICUS_USERNAME }}
         COPERNICUS_PASSWORD: ${{ secrets.COPERNICUS_PASSWORD }}
       run: |
-        echo "Running analysis..."
+        echo "🎬 شروع اجرای اسکریپت..."
         python backend/run_daily.py
     
-    - name: Show results
-      if: always()
+    # مرحله ۵: نمایش نتایج
+    - name: نمایش نتایج
       run: |
-        echo "=== Results directory contents ==="
-        ls -la results/
         echo ""
-        echo "=== Last result file ==="
+        echo "📋 نتایج اجرا:"
+        echo "--------------"
         if ls results/*.txt 1> /dev/null 2>&1; then
+          echo "✅ فایل‌های ایجاد شده:"
+          ls -la results/*.txt
+          echo ""
+          echo "📄 محتوای آخرین فایل:"
           cat results/$(ls -t results/*.txt | head -1)
         else
-          echo "No result files found"
+          echo "❌ هیچ فایلی ایجاد نشد"
         fi
     
-    - name: Upload results
+    # مرحله ۶: ذخیره نتایج
+    - name: ذخیره نتایج
       uses: actions/upload-artifact@v3
       with:
-        name: analysis-results
+        name: نتایج-تحلیل
         path: results/
