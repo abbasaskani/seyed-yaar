@@ -10,7 +10,7 @@ jobs:
     steps:
     # مرحله ۱: دریافت کد
     - name: دریافت کد
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4  # ✅ تغییر از v3 به v4
     
     # مرحله ۲: نصب پایتون
     - name: نصب پایتون
@@ -51,9 +51,9 @@ jobs:
           echo "❌ هیچ فایلی ایجاد نشد"
         fi
     
-    # مرحله ۶: ذخیره نتایج
+    # مرحله ۶: ذخیره نتایج - ✅ تغییر از v3 به v4
     - name: ذخیره نتایج
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: نتایج-تحلیل
         path: results/
