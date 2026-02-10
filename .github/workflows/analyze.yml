@@ -1,65 +1,76 @@
 name: تحلیل داده‌های ماهی تن
 
 on:
-  workflow_dispatch:  # فقط اجرای دستی
+  workflow_dispatch:
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
     
     steps:
-    # مرحله ۱: دریافت کد
     - name: دریافت کد
       uses: actions/checkout@v4
     
-    # مرحله ۲: نصب پایتون
     - name: نصب پایتون
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
     
-    # مرحله ۳: ایجاد پوشه‌ها
+    - name: نصب کتابخانه‌ها
+      run: |
+        pip install requests xarray netCDF4 numpy pandas
+        echo "📦 کتابخانه‌های نصب شده:"
+        pip list | grep -E "(requests|xarray|netCDF4|numpy|pandas)"
+    
     - name: ایجاد پوشه‌ها
       run: |
-        mkdir -p data
+        mkdir -p data/copernicus
         mkdir -p results
-        echo "📁 پوشه‌ها ایجاد شدند"
+        echo "📁 ساختار پوشه‌ها:"
+        find . -type d -name "data" -o -name "results" | sort
     
-    # مرحله ۴: اجرای تحلیل
-    - name: اجرای تحلیل
+    - name: اجرای دانلود داده
       env:
         COPERNICUS_USERNAME: ${{ secrets.COPERNICUS_USERNAME }}
         COPERNICUS_PASSWORD: ${{ secrets.COPERNICUS_PASSWORD }}
       run: |
-        echo "🎬 شروع اجرای اسکریپت..."
-        python backend/run_daily.py
+        echo "🌊 شروع دانلود داده از Copernicus Marine..."
+        python backend/download_real_data.py
     
-    # مرحله ۵: نمایش نتایج - **اصلاح شده**
-    - name: نمایش نتایج
+    - name: بررسی فایل‌های دانلود شده
       run: |
         echo ""
-        echo "📋 نتایج اجرا:"
-        echo "--------------"
+        echo "📊 وضعیت فایل‌ها:"
+        echo "----------------"
         
-        # تغییر ۱: ذخیره نام فایل در متغیر
-        if ls results/*.txt 1> /dev/null 2>&1; then
-          echo "✅ فایل‌های ایجاد شده:"
-          ls -la results/
-          echo ""
-          
-          # پیدا کردن آخرین فایل
-          latest_file=$(ls -t results/*.txt | head -1)
-          echo "📄 محتوای فایل: $latest_file"
-          echo "----------------------------------------"
-          cat "$latest_file"
-          echo "----------------------------------------"
+        echo "1. پوشه data:"
+        find data -type f 2>/dev/null || echo "   (خالی)"
+        
+        echo ""
+        echo "2. حجم فایل‌ها:"
+        if [ -d "data/copernicus" ]; then
+          du -sh data/copernicus/*
         else
-          echo "❌ هیچ فایلی ایجاد نشد"
+          echo "   پوشه copernicus وجود ندارد"
+        fi
+        
+        echo ""
+        echo "3. اطلاعات فایل NetCDF:"
+        if ls data/copernicus/*.nc 1> /dev/null 2>&1; then
+          for file in data/copernicus/*.nc; do
+            echo "   📄 $file"
+            echo "      حجم: $(ls -lh "$file" | awk '{print $5}')"
+            echo "      تاریخ: $(ls -lh "$file" | awk '{print $6, $7, $8}')"
+          done
+        else
+          echo "   هیچ فایل NetCDF یافت نشد"
         fi
     
-    # مرحله ۶: ذخیره نتایج
     - name: ذخیره نتایج
       uses: actions/upload-artifact@v4
       with:
-        name: نتایج-تحلیل
-        path: results/
+        name: داده‌های-دریایی
+        path: |
+          data/
+          results/
+        retention-days: 7
