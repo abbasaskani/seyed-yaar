@@ -1,4 +1,4 @@
-name: تحلیل داده‌های ماهی تن
+name: تحلیل و گزارش‌گیری داده‌های ماهی تن
 
 on:
   workflow_dispatch:
@@ -13,66 +13,71 @@ jobs:
     - name: دریافت کد
       uses: actions/checkout@v4
     
-    - name: نصب پایتون
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: نصب کتابخانه‌ها
+    - name: نصب پایتون و کتابخانه‌ها
       run: |
-        pip install xarray netCDF4 numpy pandas
+        pip install xarray netCDF4 numpy pandas matplotlib
         echo "📦 کتابخانه‌های نصب شده:"
-        pip list | grep -E "(xarray|netCDF4|numpy|pandas)"
+        pip list | grep -E "(xarray|netCDF4|numpy|pandas|matplotlib)"
     
     - name: ایجاد پوشه‌ها
       run: |
         mkdir -p data/noaa_sst
         mkdir -p results
+        mkdir -p reports
+        mkdir -p charts
+        mkdir -p trends
         echo "📁 ساختار پوشه‌ها ایجاد شد"
     
-    - name: تست اتصال اینترنت
+    - name: دانلود و تحلیل داده
       run: |
-        echo "🔍 تست اتصال به اینترنت..."
-        timeout 10 curl -I https://noaa.gov || echo "خطای curl، ادامه می‌دهیم..."
-    
-    - name: اجرای تحلیل داده
-      run: |
-        echo "🌊 شروع تحلیل داده‌های دریایی..."
+        echo "🌊 شروع دریافت و تحلیل داده‌ها..."
         python backend/download_public_data.py
     
-    - name: نمایش نتایج
+    - name: ایجاد گزارش‌های پیشرفته
+      run: |
+        echo "📊 ایجاد گزارش‌های تحلیلی..."
+        python backend/generate_report.py
+    
+    - name: نمایش نتایج نهایی
       run: |
         echo ""
         echo "📋 نتایج نهایی:"
         echo "--------------"
         
-        # نمایش فایل‌های داده
-        echo "📁 محتوای پوشه data:"
-        find data -name "*.nc" -type f 2>/dev/null | head -5 || echo "   (فایلی یافت نشد)"
+        echo "📁 ساختار پروژه:"
+        find . -type d -name "data" -o -name "results" -o -name "reports" -o -name "charts" -o -name "trends" | sort
         
         echo ""
-        echo "📄 محتوای پوشه results:"
-        ls -la results/ 2>/dev/null || echo "   پوشه results خالی است"
+        echo "📄 گزارش‌های ایجاد شده:"
+        find reports/ -name "*.txt" 2>/dev/null | head -3 || echo "   (گزارشی یافت نشد)"
         
-        # نمایش آخرین فایل JSON
+        echo ""
+        echo "📈 نمودارها:"
+        find charts/ -name "*.png" 2>/dev/null | head -3 || echo "   (نموداری یافت نشد)"
+        
+        echo ""
+        echo "📊 آخرین تحلیل دما:"
         if ls results/*.json 1> /dev/null 2>&1; then
-          echo ""
-          echo "📊 نتایج تحلیل:"
           latest_json=$(ls -t results/*.json | head -1)
-          cat "$latest_json"
+          echo "   فایل: $(basename $latest_json)"
+          cat $latest_json
         fi
     
-    - name: ذخیره نتایج
+    - name: ذخیره همه نتایج
       uses: actions/upload-artifact@v4
       with:
-        name: نتایج-ماهی‌گیری
+        name: نتایج-کامل
         path: |
           data/
           results/
+          reports/
+          charts/
+          trends/
         retention-days: 30
     
-    - name: ارسال نوتیفیکیشن
+    - name: ارسال اعلان موفقیت
       if: success()
       run: |
-        echo "✅ تحلیل با موفقیت انجام شد!"
-        echo "📊 نتایج در بخش Artifacts قابل دانلود است"
+        echo "✅ تحلیل روزانه با موفقیت انجام شد!"
+        echo "📊 نتایج کامل در Artifacts قابل دانلود است"
+        echo "🕐 زمان: $(date)"
