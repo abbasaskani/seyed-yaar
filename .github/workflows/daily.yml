@@ -1,0 +1,74 @@
+name: 🎣 Daily Tuna Hotspot Analysis
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # هر روز ساعت 4 صبح UTC
+  workflow_dispatch:      # اجرای دستی
+
+jobs:
+  run-analysis:
+    runs-on: ubuntu-latest
+    
+    env:
+      COPERNICUS_USERNAME: ${{ secrets.COPERNICUS_USERNAME }}
+      COPERNICUS_PASSWORD: ${{ secrets.COPERNICUS_PASSWORD }}
+      GFW_TOKEN: ${{ secrets.GFW_TOKEN }}
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: 📦 Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install copernicusmarine==2.2.5
+          pip install numpy xarray pandas matplotlib geopandas
+          pip install netCDF4 h5netcdf
+      
+      - name: 📁 Create directory structure
+        run: |
+          mkdir -p backend
+          mkdir -p backend/config
+          mkdir -p docs/latest
+          mkdir -p outputs
+      
+      - name: 🎯 Run tuna hotspot analysis
+        run: |
+          python backend/run_daily.py
+      
+      - name: 💾 Commit and push results
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          git add docs/latest/*
+          git add outputs/*
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "📊 Daily update: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
+      
+      - name: 📤 Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tuna-hotspots
+          path: |
+            docs/latest/*
+            outputs/*
+      
+      - name: ✅ Success notification
+        if: success()
+        run: |
+          echo "🎉 Daily analysis completed successfully!"
+          echo "🌐 View at: https://abbasaskani76022.github.io/seyed-yaar/"
