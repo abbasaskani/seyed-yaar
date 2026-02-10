@@ -26,6 +26,7 @@ jobs:
         mkdir -p reports
         mkdir -p charts
         mkdir -p trends
+        mkdir -p website
         echo "📁 ساختار پوشه‌ها ایجاد شد"
     
     - name: دانلود و تحلیل داده
@@ -38,6 +39,11 @@ jobs:
         echo "📊 ایجاد گزارش‌های تحلیلی..."
         python backend/generate_report.py
     
+    - name: ایجاد وب‌سایت
+      run: |
+        echo "🌐 ایجاد صفحه وب نمایش نتایج..."
+        python backend/create_website.py
+    
     - name: نمایش نتایج نهایی
       run: |
         echo ""
@@ -45,7 +51,7 @@ jobs:
         echo "--------------"
         
         echo "📁 ساختار پروژه:"
-        find . -type d -name "data" -o -name "results" -o -name "reports" -o -name "charts" -o -name "trends" | sort
+        find . -type d -name "data" -o -name "results" -o -name "reports" -o -name "charts" -o -name "trends" -o -name "website" | sort
         
         echo ""
         echo "📄 گزارش‌های ایجاد شده:"
@@ -54,6 +60,10 @@ jobs:
         echo ""
         echo "📈 نمودارها:"
         find charts/ -name "*.png" 2>/dev/null | head -3 || echo "   (نموداری یافت نشد)"
+        
+        echo ""
+        echo "🌐 فایل وب‌سایت:"
+        find website/ -name "*.html" 2>/dev/null || echo "   (فایل HTML یافت نشد)"
         
         echo ""
         echo "📊 آخرین تحلیل دما:"
@@ -66,18 +76,19 @@ jobs:
     - name: ذخیره همه نتایج
       uses: actions/upload-artifact@v4
       with:
-        name: نتایج-کامل
+        name: fishing-results  # انگلیسی شده!
         path: |
           data/
           results/
           reports/
           charts/
           trends/
+          website/
         retention-days: 30
     
     - name: ارسال اعلان موفقیت
       if: success()
       run: |
         echo "✅ تحلیل روزانه با موفقیت انجام شد!"
-        echo "📊 نتایج کامل در Artifacts قابل دانلود است"
+        echo "📊 نتایج کامل در Artifacts با نام 'fishing-results' قابل دانلود است"
         echo "🕐 زمان: $(date)"
