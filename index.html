@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎣 صیدیار - سامانه هوشمند پیش‌بینی صید تُن</title>
+    <meta name="description" content="سامانه پیش‌بینی مناطق مناسب صید تُن در دریای عربی با استفاده از داده‌های ماهواره‌ای">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vazirmatn@33.003/font.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0B3C5D;
+            --secondary: #1ABC9C;
+            --accent: #F1C40F;
+            --danger: #E74C3C;
+            --light: #F8F9FA;
+            --dark: #2C3E50;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Vazirmatn', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: var(--light);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* هدر */
+        header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .logo {
+            font-size: 4rem;
+            margin-bottom: 10px;
+            color: var(--accent);
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--accent), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            font-size: 1.3rem;
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        /* محتوا */
+        .content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+            border-color: var(--accent);
+        }
+        
+        .card h2 {
+            color: var(--accent);
+            margin-bottom: 20px;
+            font-size: 1.6rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .card h2 i {
+            font-size: 1.4rem;
+        }
+        
+        /* دکمه‌ها */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: var(--accent);
+            color: var(--primary);
+            padding: 12px 25px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+        
+        .btn:hover {
+            background: #F7DC6F;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        /* فهرست نقاط داغ */
+        .hotspot-list {
+            list-style: none;
+            margin-top: 15px;
+        }
+        
+        .hotspot-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.3s ease;
+        }
+        
+        .hotspot-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .probability {
+            font-weight: bold;
+            color: var(--accent);
+            font-size: 1.2rem;
+        }
+        
+        /* آمار */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent);
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        /* فوتتر */
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            border-top: 2px solid rgba(255, 255, 255, 0.2);
+            margin-top: 60px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .company {
+            font-size: 1.2rem;
+            color: var(--accent);
+            margin: 10px 0;
+        }
+        
+        .version {
+            font-size: 0.9rem;
+            opacity: 0.7;
+            margin-top: 10px;
+        }
+        
+        /* نقشه */
+        .map-container {
+            height: 400px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .map-placeholder {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .map-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(11, 60, 93, 0.9);
+            padding: 10px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .map-tag {
+            background: var(--secondary);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+        
+        /* جدول */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .data-table th, .data-table td {
+            padding: 12px;
+            text-align: right;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .data-table th {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--accent);
+        }
+        
+        .data-table tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        /* پاسخگو */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .content {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .card {
+                padding: 20px;
+            }
+        }
+        
+        /* انیمیشن */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+        
+        /* بارگذاری */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--accent);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* نوار پیشرفت */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--secondary), var(--accent));
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="fade-in">
+            <div class="logo">🎣</div>
+            <h1>صیدیار (Seyd-Yaar)</h1>
+            <p class="subtitle">سامانه هوشمند پیش‌بینی صید تُن در دریای عربی | تحلیل داده‌های ماهواره‌ای Copernicus Marine</p>
+            <div style="margin-top: 20px;">
+                <span class="map-tag">🌡️ دمای سطح دریا</span>
+                <span class="map-tag">🌿 کلروفیل</span>
+                <span class="map-tag">🎯 پیش‌بینی ۰-۱۰۰٪</span>
+                <span class="map-tag">🔄 به‌روزرسانی روزانه</span>
+            </div>
+        </header>
+        
+        <div class="content">
+            <!-- کارت ۱: آمار امروز -->
+            <div class="card fade-in">
+                <h2><i class="fas fa-chart-line"></i> 📊 آمار امروز</h2>
+                <div class="stats-grid">
+                    <div class="stat">
+                        <span class="stat-value" id="max-prob">--%</span>
+                        <span class="stat-label">بیشترین احتمال</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" id="avg-prob">--%</span>
+                        <span class="stat-label">میانگین احتمال</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" id="hotspot-count">--</span>
+                        <span class="stat-label">نقاط داغ</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value" id="update-time">--:--</span>
+                        <span class="stat-label">آخرین به‌روزرسانی</span>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span>کیفیت مناطق:</span>
+                        <span id="quality-text">در حال بارگذاری...</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="quality-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <button class="btn" onclick="refreshData()" style="width: 100%; margin-top: 20px;">
+                    <i class="fas fa-sync-alt"></i> به‌روزرسانی داده‌ها
+                </button>
+            </div>
+            
+            <!-- کارت ۲: ۵ نقطه برتر -->
+            <div class="card fade-in">
+                <h2><i class="fas fa-map-marker-alt"></i> 🏆 ۵ نقطه برتر</h2>
+                <ul class="hotspot-list" id="top5-list">
+                    <li class="hotspot-item">
+                        <span>در حال بارگذاری...</span>
+                        <span class="probability"><div class="loading"></div></span>
+                    </li>
+                </ul>
+                
+                <div style="margin-top: 20px;">
+                    <a href="docs/latest/hotspots.json" class="btn" target="_blank">
+                        <i class="fas fa-download"></i> دریافت JSON
+                    </a>
+                    <a href="docs/latest/hotspots.geojson" class="btn btn-secondary" target="_blank" style="margin-right: 10px;">
+                        <i class="fas fa-globe"></i> دریافت GeoJSON
+                    </a>
+                </div>
+            </div>
+            
+            <!-- کارت ۳: نقشه -->
+            <div class="card fade-in">
+                <h2><i class="fas fa-map"></i> 🗺️ نقشه منطقه</h2>
+                <div class="map-container">
+                    <div class="map-placeholder">
+                        <div style="font-size: 4rem; margin-bottom: 10px;">🌊</div>
+                        <h3>دریای عربی</h3>
+                        <p>محدوده تحلیل: ۵۲° تا ۶۲° شرقی، ۱۰° تا ۲۰° شمالی</p>
+                    </div>
+                    <div class="map-overlay">
+                        <span class="map-tag"><i class="fas fa-fish"></i> Skipjack/Yellowfin</span>
+                        <span class="map-tag"><i class="fas fa-water"></i> عمق: ۰-۱۰۰ متر</span>
+                        <span class="map-tag"><i class="fas fa-satellite"></i> Copernicus Marine</span>
+                    </div>
+                </div>
+                
+                <button class="btn" style="width: 100%; margin-top: 15px;" onclick="showMapDetails()">
+                    <i class="fas fa-info-circle"></i> اطلاعات بیشتر درباره نقشه
+                </button>
+            </div>
+            
+            <!-- کارت ۴: سیستم -->
+            <div class="card fade-in">
+                <h2><i class="fas fa-cogs"></i> ⚙️ وضعیت سیستم</h2>
+                <table class="data-table">
+                    <tr>
+                        <td><i class="fas fa-database" style="color: #1ABC9C;"></i> بک‌اند Python</td>
+                        <td><span style="color: #1ABC9C;">🟢 فعال</span></td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-satellite-dish" style="color: #F1C40F;"></i> اتصال Copernicus</td>
+                        <td><span style="color: #F1C40F;">🟡 نیاز به تست</span></td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-robot" style="color: #1ABC9C;"></i> GitHub Actions</td>
+                        <td><span style="color: #1ABC9C;">🟢 فعال</span></td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-globe" style="color: #1ABC9C;"></i> GitHub Pages</td>
+                        <td><span style="color: #1ABC9C;">🟢 فعال</span></td>
+                    </tr>
+                </table>
+                
+                <div style="margin-top: 20px;">
+                    <a href="https://github.com/abbasaskani76022/seyed-yaar/actions" class="btn" target="_blank">
+                        <i class="fas fa-play-circle"></i> اجرای تحلیل
+                    </a>
+                    <a href="docs/latest/summary.md" class="btn btn-secondary" target="_blank" style="margin-right: 10px;">
+                        <i class="fas fa-file-alt"></i> مشاهده گزارش
+                    </a>
+                </div>
+            </div>
+            
+            <!-- کارت ۵: اطلاعات -->
+            <div class="card fade-in">
+                <h2><i class="fas fa-info-circle"></i> 📚 درباره صیدیار</h2>
+                <p style="margin-bottom: 15px;">
+                    <strong>صیدیار</strong> یک سامانه پیشرفته برای پیش‌بینی مناطق مناسب صید تُن در دریای عربی است.
+                </p>
+                
+                <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 10px; margin: 15px 0;">
+                    <h3 style="color: #F1C40F; margin-bottom: 10px; font-size: 1.2rem;"><i class="fas fa-brain"></i> مدل علمی</h3>
+                    <p>ترکیب داده‌های دمای سطح دریا (SST) و کلروفیل (Chl-a) با الگوریتم HSI برای شناسایی نقاط داغ صید.</p>
+                </div>
+                
+                <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 10px;">
+                    <h3 style="color: #1ABC9C; margin-bottom: 10px; font-size: 1.2rem;"><i class="fas fa-sync-alt"></i> اتوماسیون</h3>
+                    <p>سیستم هر روز به طور خودکار اجرا می‌شود و نتایج جدید را منتشر می‌کند.</p>
+                </div>
+            </div>
+            
+            <!-- کارت ۶: راهنمایی -->
+            <div class="card fade-in">
+                <h2><i class="fas fa-question-circle"></i> 💡 راهنمای استفاده</h2>
+                <ol style="margin-right: 20px; margin-top: 10px;">
+                    <li style="margin-bottom: 10px;">روی دکمه "اجرای تحلیل" کلیک کنید</li>
+                    <li style="margin-bottom: 10px;">۲-۳ دقیقه منتظر بمانید</li>
+                    <li style="margin-bottom: 10px;">داده‌های به‌روز را مشاهده کنید</li>
+                    <li style="margin-bottom: 10px;">فایل‌های خروجی را دانلود کنید</li>
+                </ol>
+                
+                <div style="margin-top: 20px; padding: 15px; background: rgba(241, 196, 15, 0.1); border-radius: 10px;">
+                    <p style="color: #F1C40F;"><i class="fas fa-lightbulb"></i> <strong>نکته:</strong> برای استفاده از داده‌های واقعی، Secrets در GitHub باید تنظیم شوند.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- جدول کامل نقاط -->
+        <div class="card fade-in" style="grid-column: 1 / -1; margin-top: 20px;">
+            <h2><i class="fas fa-table"></i> 📋 جدول کامل نقاط داغ</h2>
+            <div style="overflow-x: auto;">
+                <table class="data-table" id="full-table">
+                    <thead>
+                        <tr>
+                            <th>رتبه</th>
+                            <th>عرض جغرافیایی</th>
+                            <th>طول جغرافیایی</th>
+                            <th>احتمال صید</th>
+                            <th>دمای آب</th>
+                            <th>کلروفیل</th>
+                            <th>توضیحات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 30px;">
+                                <div class="loading" style="margin: 0 auto;"></div>
+                                در حال بارگذاری داده‌ها...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <footer class="fade-in">
+            <h3>🎣 صیدیار - Seyd-Yaar</h3>
+            <p class="company">Askani Fishing Data Company</p>
+            <p>توسعه‌یافته توسط <strong>عباس آسکانی</strong></p>
+            
+            <div style="margin: 20px 0;">
+                <a href="mailto:abbasaskani76022@gmail.com" class="btn" style="margin: 0 5px;">
+                    <i class="fas fa-envelope"></i> ایمیل
+                </a>
+                <a href="https://github.com/abbasaskani76022" class="btn btn-secondary" style="margin: 0 5px;" target="_blank">
+                    <i class="fab fa-github"></i> GitHub
+                </a>
+                <button class="btn btn-danger" onclick="showCredits()" style="margin: 0 5px;">
+                    <i class="fas fa-heart"></i> اعتبارات
+                </button>
+            </div>
+            
+            <p class="version">
+                نسخه ۱.۰.۰ | آخرین به‌روزرسانی: 
+                <span id="current-date">۱۴۰۲/۱۰/۰۹</span> |
+                <span id="system-status">سیعالعمل 🚀</span>
+            </p>
+        </footer>
+    </div>
+    
+    <script>
+        // اطلاعات اولیه
+        let hotspotsData = [];
+        let lastUpdate = 'در حال بارگذاری...';
+        
+        // بارگذاری داده‌ها از فایل JSON
+        async function loadData() {
+            try {
+                const response = await fetch('docs/latest/hotspots.json');
+                const data = await response.json();
+                
+                hotspotsData = data.hotspots || [];
+                lastUpdate = new Date(data.metadata.generated_at).toLocaleString('fa-IR');
+                
+                // به‌روزرسانی آمار
+                updateStats(data);
+                
+                // به‌روزرسانی لیست ۵ نقطه برتر
+                updateTop5List();
+                
+                // به‌روزرسانی جدول کامل
+                updateFullTable();
+                
+                // به‌روزرسانی زمان
+                document.getElementById('update-time').textContent = 
+                    new Date(data.metadata.generated_at).toLocaleTimeString('fa-IR', {hour: '2-digit', minute:'2-digit'});
+                
+                console.log('✅ داده‌ها با موفقیت بارگذاری شدند');
+                
+            } catch (error) {
+                console.error('❌ خطا در بارگذاری داده‌ها:', error);
+                
+                // استفاده از داده‌های نمونه
+                useSampleData();
+            }
+        }
+        
+        // استفاده از داده‌های نمونه
+        function useSampleData() {
+            hotspotsData = [
+                {id: 1, latitude: 18.4521, longitude: 56.1234, probability: 92.5, temperature: 29.1, chlorophyll: 0.28, description: "عالی - شرایط ایده‌آل"},
+                {id: 2, latitude: 17.8923, longitude: 57.2345, probability: 87.3, temperature: 28.7, chlorophyll: 0.32, description: "خوب - احتمال صید بالا"},
+                {id: 3, latitude: 19.1234, longitude: 55.5678, probability: 81.6, temperature: 27.9, chlorophyll: 0.25, description: "خوب - شرایط مناسب"},
+                {id: 4, latitude: 16.7890, longitude: 58.3456, probability: 76.2, temperature: 27.2, chlorophyll: 0.35, description: "متوسط - قابل قبول"},
+                {id: 5, latitude: 18.0012, longitude: 56.7890, probability: 68.9, temperature: 26.8, chlorophyll: 0.40, description: "متوسط - نیاز به بررسی"},
+                {id: 6, latitude: 17.2345, longitude: 57.8901, probability: 59.4, temperature: 26.1, chlorophyll: 0.18, description: "ضعیف - احتمال کم"},
+                {id: 7, latitude: 19.4567, longitude: 55.1234, probability: 52.7, temperature: 25.7, chlorophyll: 0.22, description: "ضعیف - شرایط محدود"},
+                {id: 8, latitude: 16.5678, longitude: 58.6789, probability: 45.3, temperature: 25.2, chlorophyll: 0.45, description: "خیلی ضعیف"},
+                {id: 9, latitude: 18.7890, longitude: 56.4567, probability: 38.9, temperature: 24.8, chlorophyll: 0.15, description: "خیلی ضعیف"},
+                {id: 10, latitude: 17.3456, longitude: 57.0123, probability: 31.5, temperature: 24.3, chlorophyll: 0.50, description: "نامناسب"}
+            ];
+            
+            const sampleStats = {
+                max_probability: 92.5,
+                avg_probability: 62.4,
+                total_hotspots: 10,
+                hotspot_distribution: {
+                    excellent: 1,
+                    good: 3,
+                    medium: 3,
+                    poor: 3
+                }
+            };
+            
+            updateStats({statistics: sampleStats});
+            updateTop5List();
+            updateFullTable();
+            lastUpdate = new Date().toLocaleString('fa-IR');
+            
+            document.getElementById('update-time').textContent = 
+                new Date().toLocaleTimeString('fa-IR', {hour: '2-digit', minute:'2-digit'});
+            
+            document.getElementById('system-status').innerHTML = 
+                '<span style="color: #F1C40F;">⚠️ استفاده از داده نمونه</span>';
+        }
+        
+        // به‌روزرسانی آمار
+        function updateStats(data) {
+            const stats = data.statistics;
+            
+            document.getElementById('max-prob').textContent = stats.max_probability + '%';
+            document.getElementById('avg-prob').textContent = stats.avg_probability + '%';
+            document.getElementById('hotspot-count').textContent = stats.total_hotspots;
+            
+            // نوار کیفیت
+            const qualityPercent = (stats.hotspot_distribution.excellent * 100 + 
+                                  stats.hotspot_distribution.good * 70 + 
+                                  stats.hotspot_distribution.medium * 40 + 
+                                  stats.hotspot_distribution.poor * 10) / stats.total_hotspots;
+            
+            document.getElementById('quality-bar').style.width = qualityPercent + '%';
+            
+            let qualityText = '';
+            if (qualityPercent >= 80) qualityText = 'عالی 🏆';
+            else if (qualityPercent >= 60) qualityText = 'خوب 👍';
+            else if (qualityPercent >= 40) qualityText = 'متوسط ⚠️';
+            else qualityText = 'نیاز به بهبود 📉';
+            
+            document.getElementById('quality-text').textContent = qualityText;
+        }
+        
+        // به‌روزرسانی لیست ۵ نقطه برتر
+        function updateTop5List() {
+            const list = document.getElementById('top5-list');
+            list.innerHTML = '';
+            
+            hotspotsData.slice(0, 5).forEach(hotspot => {
+                const li = document.createElement('li');
+                li.className = 'hotspot-item';
+                li.innerHTML = `
+                    <span>📍 نقطه ${hotspot.id} | ${hotspot.latitude}°N, ${hotspot.longitude}°E</span>
+                    <span class="probability">${hotspot.probability}%</span>
+                `;
+                list.appendChild(li);
+            });
+        }
+        
+        // به‌روزرسانی جدول کامل
+        function updateFullTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            
+            hotspotsData.forEach(hotspot => {
+                const tr = document.createElement('tr');
+                
+                // رنگ‌بندی بر اساس احتمال
+                let rowClass = '';
+                if (hotspot.probability >= 90) rowClass = 'style="background: rgba(26, 188, 156, 0.1)"';
+                else if (hotspot.probability >= 70) rowClass = 'style="background: rgba(26, 188, 156, 0.05)"';
+                else if (hotspot.probability >= 50) rowClass = 'style="background: rgba(241, 196, 15, 0.05)"';
+                else rowClass = 'style="background: rgba(231, 76, 60, 0.05)"';
+                
+                tr.setAttribute('style', rowClass.split('"')[1]);
+                
+                tr.innerHTML = `
+                    <td><strong>${hotspot.id}</strong></td>
+                    <td>${hotspot.latitude}°</td>
+                    <td>${hotspot.longitude}°</td>
+                    <td><strong style="color: ${getProbabilityColor(hotspot.probability)}">${hotspot.probability}%</strong></td>
+                    <td>${hotspot.temperature}°C</td>
+                    <td>${hotspot.chlorophyll} mg/m³</td>
+                    <td>${hotspot.description}</td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // رنگ بر اساس احتمال
+        function getProbabilityColor(probability) {
+            if (probability >= 90) return '#1ABC9C';
+            if (probability >= 70) return '#2ECC71';
+            if (probability >= 50) return '#F1C40F';
+            if (probability >= 30) return '#E67E22';
+            return '#E74C3C';
+        }
+        
+        // تازه‌سازی داده‌ها
+        function refreshData() {
+            const btn = event.target.closest('.btn');
+            const originalHTML = btn.innerHTML;
+            
+            btn.innerHTML = '<div class="loading"></div> در حال به‌روزرسانی...';
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                loadData();
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+                
+                // نمایش پیام موفقیت
+                showMessage('✅ داده‌ها با موفقیت به‌روزرسانی شدند', 'success');
+            }, 1500);
+        }
+        
+        // نمایش پیام
+        function showMessage(text, type) {
+            const message = document.createElement('div');
+            message.textContent = text;
+            message.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${type === 'success' ? '#1ABC9C' : '#E74C3C'};
+                color: white;
+                padding: 15px 25px;
+                border-radius: 10px;
+                z-index: 1000;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+                animation: fadeIn 0.3s ease-out;
+            `;
+            
+            document.body.appendChild(message);
+            
+            setTimeout(() => {
+                message.style.animation = 'fadeOut 0.3s ease-out';
+                setTimeout(() => message.remove(), 300);
+            }, 3000);
+        }
+        
+        // نمایش اطلاعات نقشه
+        function showMapDetails() {
+            const details = `
+                <strong>🗺️ اطلاعات نقشه:</strong><br>
+                • منطقه: دریای عربی<br>
+                • مختصات: ۵۲° تا ۶۲° شرقی، ۱۰° تا ۲۰° شمالی<br>
+                • گونه هدف: Skipjack و Yellowfin Tuna<br>
+                • عمق مناسب: ۰-۱۰۰ متر<br>
+                • دمای بهینه: ۲۸-۳۱°C<br>
+                • منبع داده: Copernicus Marine
+            `;
+            
+            alert(details);
+        }
+        
+        // نمایش اعتبارات
+        function showCredits() {
+            const credits = `
+                <strong>🎣 اعتبارات و منابع:</strong><br><br>
+                • <strong>Copernicus Marine Service:</strong> داده‌های ماهواره‌ای<br>
+                • <strong>GitHub Actions:</strong> اتوماسیون و اجرا<br>
+                • <strong>Python Libraries:</strong> تحلیل داده‌ها<br>
+                • <strong>Askani Fishing Data Company:</strong> توسعه و پشتیبانی<br>
+                <br>
+                <strong>توسعه‌دهنده اصلی:</strong> عباس آسکانی<br>
+                <strong>ایمیل:</strong> abbasaskani76022@gmail.com<br>
+                <br>
+                <strong>تکنولوژی‌ها:</strong><br>
+                • Python 3.11<br>
+                • Copernicus Marine API<br>
+                • GitHub Actions<br>
+                • HTML/CSS/JavaScript<br>
+            `;
+            
+            alert(credits);
+        }
+        
+        // بارگذاری اولیه داده‌ها
+        document.addEventListener('DOMContentLoaded', function() {
+            // به‌روزرسانی تاریخ فعلی
+            const now = new Date();
+            const persianDate = now.toLocaleDateString('fa-IR');
+            document.getElementById('current-date').textContent = persianDate;
+            
+            // بارگذاری داده‌ها
+            loadData();
+            
+            // بارگذاری خودکار هر ۵ دقیقه
+            setInterval(loadData, 5 * 60 * 1000);
+        });
+    </script>
+</body>
+</html>
