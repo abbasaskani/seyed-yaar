@@ -1010,7 +1010,8 @@ function simplifyGridRing(pts){
 }
 
 function renderClusters(infos, thrVal, mode){
-  ensurePanes();
+  const clusterTops = [];
+ensurePanes();
   if(clusterLayer){ try{ clusterLayer.remove(); }catch(_){} clusterLayer=null; }
   if(clusterCenters){ try{ clusterCenters.remove(); }catch(_){} clusterCenters=null; }
   if(clusterTopLayer){ try{ clusterTopLayer.remove(); }catch(_){} clusterTopLayer=null; }
@@ -1142,8 +1143,22 @@ async function scanTimeIdsFromTimesDir(){
 function currentPerTimeKey(){
   const mapKey = $("mapSelect")?.value || "pcatch";
   const modelKey = $("modelSelect")?.value || "ensemble";
+
+  // direct environmental layers
+  if(mapKey==="front") return "front";
+  if(mapKey==="sst") return "sst";
+  if(mapKey==="chl") return "chl";
+  if(mapKey==="current") return "current";
+  if(mapKey==="waves") return "waves";
+
   if(mapKey==="pcatch") return `pcatch_${modelKey}`;
-  if(mapKey==="phab") return (modelKey==="frontplus") ? "phab_frontplus" : "phab_scoring";
+  if(mapKey==="phab"){
+    // show habitat corresponding to selected model (fallback to scoring)
+    if(modelKey==="hybrid") return "phab_hybrid";   // if present
+    if(modelKey==="enm") return "phab_enm";
+    if(modelKey==="scoring" || modelKey==="ensemble" || modelKey==="frontplus" || modelKey==="frontboost" || modelKey==="ppp") return "phab_scoring";
+    return "phab_scoring";
+  }
   if(mapKey==="pops") return "pops";
   if(mapKey==="agree") return "agree";
   if(mapKey==="spread") return "spread";
@@ -1583,8 +1598,13 @@ function getSelectedTimes(){
 function mapTitle(){
   const m = $("mapSelect").value;
   if(m==="pcatch") return "Pcatch (Habitat×Ops)";
-  if(m==="phab") return "Habitat Suitability";
+  if(m==="phab") return "Habitat";
   if(m==="pops") return "Operational Feasibility";
+  if(m==="front") return "Front intensity";
+  if(m==="sst") return "SST";
+  if(m==="chl") return "Chlorophyll";
+  if(m==="current") return "Current speed";
+  if(m==="waves") return "Wave height";
   if(m==="agree") return "Agreement (ensemble)";
   if(m==="spread") return "Spread/Std (ensemble)";
   if(m==="conf") return "Confidence / Opacity";
@@ -1690,7 +1710,7 @@ function renderFromCache(){
   const dist = state._distVals || [];
   topFiltered.forEach((pt, idx)=>{
     pt.rank = idx+1;
-    pt.pct = (typeof percentileOfValue==='function') ? percentileOfValue(pt.p/100) : null;
+    pt.pct = (typeof percentileOfValue==='function') ? percentileOfValue(pt.p) : null;
   });
   state.lastComputed.topFiltered = topFiltered;
 
@@ -1713,23 +1733,33 @@ async function computeAndRender(){
 
   // load arrays for selected layer
   async function loadLayerForTime(timeIso){
-    const tid = timeIdFromIso(timeIso);
-    let key = null;
-    if(mapKey==="pcatch"){
-      key = `pcatch_${modelKey}`;
-    }else if(mapKey==="phab"){
-      key = (modelKey==="frontplus") ? "phab_frontplus" : "phab_scoring";
-    }else if(mapKey==="pops"){
-      key = "pops";
-    }else if(mapKey==="agree"){
-      key = "agree";
-    }else if(mapKey==="spread"){
-      key = "spread";
-    }else if(mapKey==="conf"){
-      key = "conf";
-    }else{
-      key = `pcatch_${modelKey}`;
-    }
+  const tid = timeIdFromIso(timeIso);
+  let key = null;
+
+  // direct env layers
+  if(mapKey==="front") key = "front";
+  else if(mapKey==="sst") key = "sst";
+  else if(mapKey==="chl") key = "chl";
+  else if(mapKey==="current") key = "current";
+  else if(mapKey==="waves") key = "waves";
+  else if(mapKey==="pcatch"){
+    key = `pcatch_${modelKey}`;
+  }else if(mapKey==="phab"){
+    // habitat corresponding to selected model
+    if(modelKey==="hybrid") key = "phab_hybrid";
+    else if(modelKey==="enm") key = "phab_enm";
+    else key = "phab_scoring";
+  }else if(mapKey==="pops"){
+    key = "pops";
+  }else if(mapKey==="agree"){
+    key = "agree";
+  }else if(mapKey==="spread"){
+    key = "spread";
+  }else if(mapKey==="conf"){
+    key = "conf";
+  }else{
+    key = `pcatch_${modelKey}`;
+  }
     const tpl = state.meta.paths.per_time[key];
     if(!tpl || typeof tpl !== "string"){
       console.warn("Missing layer template:", key);

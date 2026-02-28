@@ -58,19 +58,28 @@
       <div class="row">
         <label class="lbl" id="lblModel">Model</label>
         <select id="modelSelect">
+
           <option value="ensemble">Ensemble (default)</option>
-          <option value="scoring">Scoring</option>
+          <option value="hybrid">Hybrid (HSI + ENM)</option>
+          <option value="scoring">Scoring (HSI)</option>
           <option value="frontplus">Front+ (Scoring)</option>
-          <option value="ppp">MaxEnt/PPP</option>
+          <option value="frontboost">FrontBoost (1.2×)</option>
+          <option value="ppp">MaxEnt/PPP (needs data)</option>
         </select>
       </div>
 
       <div class="row">
         <label class="lbl" id="lblMap">Map</label>
         <select id="mapSelect">
+
           <option value="pcatch">Pcatch (Habitat×Ops)</option>
-          <option value="phab">Habitat Suitability</option>
+          <option value="phab">Habitat (selected model)</option>
           <option value="pops">Operational Feasibility</option>
+          <option value="front">Front intensity</option>
+          <option value="sst">SST</option>
+          <option value="chl">Chl</option>
+          <option value="current">Current speed</option>
+          <option value="waves">Wave height</option>
           <option value="agree">Agreement (ensemble)</option>
           <option value="spread">Spread/Std (ensemble)</option>
           <option value="conf">Confidence / Opacity</option>
