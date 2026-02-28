@@ -38,39 +38,6 @@
       "variable": "chl",
       "depth_target_m": 0.0,
       "units": "mg m-3"
-    },
-    "sss": {
-      "product": "GLOBAL_ANALYSISFORECAST_PHY_001_024",
-      "dataset_id": "cmems_mod_glo_phy-so_anfc_0.083deg_PT6H-i",
-      "variable": "so",
-      "depth_target_m": 0.0,
-      "units": "psu",
-      "notes": "Optional. If download fails, it will be skipped."
-    },
-    "mld": {
-      "product": "GLOBAL_ANALYSISFORECAST_PHY_001_024",
-      "dataset_id": "",
-      "variable": "mlotst",
-      "units": "m",
-      "notes": "Optional. Fill dataset_id that contains mlotst (mixed layer thickness)."
-    },
-    "o2": {
-      "product": "GLOBAL_ANALYSISFORECAST_BGC_001_028",
-      "dataset_id": "",
-      "variable": "o2",
-      "depth_target_m": 100.0,
-      "units": "umol/L",
-      "notes": "Optional. Use a 3D oxygen dataset and set a target depth (e.g., 100m) for habitat compression."
-    },
-    "windstress": {
-      "product": "<ADD_COPERNICUS_WIND_PRODUCT>",
-      "dataset_id": "",
-      "variables": [
-        "taux",
-        "tauy"
-      ],
-      "units": "N m-2",
-      "notes": "Optional. Provide dataset_id for wind stress components (tau_x,tau_y) to enable Ekman upwelling proxy."
     }
   }
 }

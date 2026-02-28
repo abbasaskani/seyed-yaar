@@ -89,12 +89,9 @@ from dateutil import tz
 from ..utils_geo import bbox_from_geojson, GridSpec, mask_from_geojson
 from ..utils_time import trusted_utc_now, timestamps_for_range
 from ..utils_time import time_id_from_iso
-from ..models.scoring import HabitatInputs, habitat_scoring, habitat_envelope, front_components, front_score
-from ..models.ops import ops_feasibility_mix_depths
+from ..models.scoring import HabitatInputs, habitat_scoring, gradient_magnitude, front_score
+from ..models.ops import ops_feasibility
 from ..models.ensemble import ensemble_stats
-
-from ..providers.presence_proxy import build_presence_proxy
-from ..models.maxent_ppp import build_feature_stack, fit_presence_background_logit, predict_prob, sample_points_from_mask
 from .io import write_bin_f32, write_bin_u8, write_json, minify_json_for_web
 
 
@@ -344,8 +341,6 @@ def _try_copernicus_layers(
             v = _read_nc_var(p, vars_uv[1])
             u = _to_grid(u)
             v = _to_grid(v)
-            out["u_m_s"] = u.astype(np.float32)
-            out["v_m_s"] = v.astype(np.float32)
             # compute in float64 to avoid overflow from occasional fill values
             out["current_m_s"] = np.sqrt(u.astype(np.float64)**2 + v.astype(np.float64)**2).astype(np.float32)
         else:
@@ -355,33 +350,6 @@ def _try_copernicus_layers(
         waves = _read_nc_var(p, _v0("waves"))
         out["waves_hs_m"] = _to_grid(waves)
 
-
-        # Optional layers (best-effort): sss, mld, o2, wind stress
-        def _try_optional(key: str) -> None:
-            cfg = datasets_cfg.get(key, {})
-            dsid = str(cfg.get("dataset_id", "")).strip()
-            if not dsid:
-                return
-            try:
-                p2 = _subset_one(key)
-                vs = cfg.get("variables", None)
-                if not vs:
-                    v = cfg.get("variable", None)
-                    vs = [v] if v else []
-                if not vs:
-                    raise RuntimeError(f"{key}: variables list is empty")
-                if len(vs) == 1:
-                    out[f"{key}"] = _to_grid(_read_nc_var(p2, vs[0]))
-                else:
-                    out[f"{key}_x"] = _to_grid(_read_nc_var(p2, vs[0]))
-                    out[f"{key}_y"] = _to_grid(_read_nc_var(p2, vs[1]))
-            except Exception as e:
-                status.setdefault("warnings", []).append(f"optional layer '{key}' failed: {e}")
-
-        _try_optional("sss")
-        _try_optional("mld")
-        _try_optional("o2")
-        _try_optional("windstress")
 
         qc = np.ones((grid.height, grid.width), dtype=np.uint8)
         conf = qc.astype(np.float32)
@@ -503,6 +471,29 @@ def run_daily(
     strict_cmems = os.getenv("SEYDYAAR_STRICT_COPERNICUS", "0") == "1"
     verify_dir = Path(os.getenv("SEYDYAAR_VERIFY_DIR", out_root / "verify"))
     verify_dir.mkdir(parents=True, exist_ok=True)
+log_dir = Path(os.getenv("SEYDYAAR_LOG_DIR", out_root / "logs"))
+log_dir.mkdir(parents=True, exist_ok=True)
+# Ensure artifact paths are never empty
+(log_dir / "keep.txt").write_text("keep", encoding="utf-8")
+(verify_dir / "keep.txt").write_text("keep", encoding="utf-8")
+manifest_path = log_dir / "download_manifest.jsonl"
+if not manifest_path.exists():
+    manifest_path.write_text("", encoding="utf-8")
+# Record run header (helps debugging even if Copernicus download fails early)
+try:
+    _append_jsonl(manifest_path, {
+        "kind": "run_start",
+        "run_id": "main",
+        "generated_at_utc": now_utc.isoformat().replace("+00:00", "Z"),
+        "anchor_date": anchor.isoformat(),
+        "grid": grid_wh,
+        "past_days": int(past_days),
+        "future_days": int(future_days),
+        "step_hours": int(step_hours),
+    })
+except Exception:
+    pass
+
     verify_time_id = now_utc.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y%m%d_0000Z")
 
     run_meta = {
@@ -555,12 +546,7 @@ def run_daily(
                     "pcatch_scoring": f"variants/{variant}/species/{sp}/times/{{time}}/pcatch_scoring_f32.bin",
                     "pcatch_frontplus": f"variants/{variant}/species/{sp}/times/{{time}}/pcatch_frontplus_f32.bin",
                     "pcatch_ensemble": f"variants/{variant}/species/{sp}/times/{{time}}/pcatch_ensemble_f32.bin",
-                    "pcatch_frontboost": f"variants/{variant}/species/{sp}/times/{{time}}/pcatch_frontboost_f32.bin",
-                    "pcatch_hybrid": f"variants/{variant}/species/{sp}/times/{{time}}/pcatch_hybrid_f32.bin",
-                    "pcatch_ppp": f"variants/{variant}/species/{sp}/times/{{time}}/pcatch_ppp_f32.bin",
                     "phab_scoring": f"variants/{variant}/species/{sp}/times/{{time}}/phab_f32.bin",
-                    "phab_hsi": f"variants/{variant}/species/{sp}/times/{{time}}/phab_hsi_f32.bin",
-                    "phab_enm": f"variants/{variant}/species/{sp}/times/{{time}}/phab_enm_f32.bin",
                     "phab_frontplus": f"variants/{variant}/species/{sp}/times/{{time}}/phab_f32.bin",
                     "pops": f"variants/{variant}/species/{sp}/times/{{time}}/pops_f32.bin",
                     "agree": f"variants/{variant}/species/{sp}/times/{{time}}/agree_f32.bin",
@@ -621,124 +607,45 @@ def run_daily(
                         if sp.exists():
                             shutil.copy2(sp, dest / f"{k}.nc")
                     except Exception:
-                        pass            # Front score is computed inside habitat_scoring (and exported via comps["score_front"]).
+                        pass
 
+            t_front = gradient_magnitude(layers["sst_c"])
+            c_front = gradient_magnitude(layers["chl_mg_m3"])
+            s_front = gradient_magnitude(layers["ssh_m"])
+            f = front_score(
+                t_front, c_front, s_front,
+                w_temp=float(priors.get("front_weights", {}).get("temp", 0.5)),
+                w_chl=float(priors.get("front_weights", {}).get("chl", 0.25)),
+                w_ssh=float(priors.get("front_weights", {}).get("ssh", 0.25)),
+            ).astype(np.float32)
 
-            # Build inputs (with optional layers when available)
             inputs = HabitatInputs(
                 sst_c=layers["sst_c"],
                 chl_mg_m3=layers["chl_mg_m3"],
                 current_m_s=layers["current_m_s"],
                 waves_hs_m=layers["waves_hs_m"],
                 ssh_m=layers["ssh_m"],
-                u_m_s=layers.get("u_m_s"),
-                v_m_s=layers.get("v_m_s"),
-                sss_psu=layers.get("sss"),
-                mld_m=layers.get("mld"),
-                o2_umol_l=layers.get("o2"),
-                tau_x=layers.get("windstress_x"),
-                tau_y=layers.get("windstress_y"),
-                bathy_m_pos_down=None,
             )
-
-            # Load static bathymetry on this grid if provided
-            backend_root = Path(__file__).resolve().parents[2]
-            bathy_path = backend_root / "data" / "static" / "bathymetry_f32.bin"
-            if bathy_path.exists():
-                try:
-                    b = np.fromfile(bathy_path, dtype=np.float32).reshape((grid.height, grid.width))
-                    inputs.bathy_m_pos_down = b
-                except Exception:
-                    pass
-
-            lat_mean = 0.5 * (grid.lat_min + grid.lat_max)
-
-            phab_hsi, comps = habitat_scoring(
-                inputs,
-                priors=priors,
-                weights=weights,
-                dx_deg=grid.dx,
-                dy_deg=grid.dy,
-                lat_mean_deg=lat_mean,
-            )
-
-            phab_enm, comps_enm = habitat_envelope(
-                sst_c=inputs.sst_c,
-                chl_mg_m3=inputs.chl_mg_m3,
-                front01=comps["score_front"],
-                sss_psu=inputs.sss_psu,
-                mld_m=inputs.mld_m,
-                o2_umol_l=inputs.o2_umol_l,
-                priors=priors,
-            )
-
-            blend = float(priors.get("hybrid_blend_hsi", 0.75))
-            phab = np.clip(blend * phab_hsi + (1.0 - blend) * phab_enm, 0.0, 1.0).astype(np.float32)
-
-            depths = prof.get("ops_depths_m", [2, 5, 10])
-            depth_w = prof.get("ops_depth_weights", [0.60, 0.30, 0.10])
-            pops, pops_comps = ops_feasibility_mix_depths(
-                inputs.current_m_s, inputs.waves_hs_m, ops_priors, depths_m=list(depths), weights=list(depth_w)
-            )
-
+            phab, _ = habitat_scoring(inputs, priors=priors, weights=weights)
+            pops = ops_feasibility(inputs.current_m_s, inputs.waves_hs_m, ops_priors, gear_depth_m=10.0)
             pcatch = np.clip(phab * pops, 0, 1).astype(np.float32)
-            f01 = comps["score_front"].astype(np.float32)
-            boost = np.clip(0.9 + 0.3 * f01, 0.0, 1.2).astype(np.float32)
-            m2 = np.clip(pcatch * boost, 0, 1).astype(np.float32)
 
-            models_for_ens = [pcatch, m2]
-            ppp_map = None
-            presence_csv = backend_root / "data" / "presence" / f"{sp}_presence.csv"
-            if os.getenv("SEYDYAAR_ENABLE_PPP", "0") == "1" and presence_csv.exists():
-                try:
-                    pts = np.genfromtxt(presence_csv, delimiter=",", names=True, dtype=None, encoding="utf-8")
-                    lonp = np.array(pts["lon"], dtype=np.float32)
-                    latp = np.array(pts["lat"], dtype=np.float32)
-                    ix = np.clip(np.rint((lonp - grid.lon_min) / (grid.lon_max - grid.lon_min + 1e-9) * (grid.width - 1)).astype(int), 0, grid.width - 1)
-                    iy = np.clip(np.rint((grid.lat_max - latp) / (grid.lat_max - grid.lat_min + 1e-9) * (grid.height - 1)).astype(int), 0, grid.height - 1)
-                    flat_presence = (iy * grid.width + ix).astype(np.int64)
-                    bg = sample_points_from_mask(mask, n=4000, seed=42)
-                    X, feat_names = build_feature_stack(inputs.sst_c, inputs.chl_mg_m3, inputs.current_m_s, inputs.waves_hs_m, f01)
-                    Xp = X[flat_presence]
-                    Xb = X[bg]
-                    model = fit_presence_background_logit(Xp, Xb, l2=float(priors.get("ppp_l2", 1.0)))
-                    ppp = predict_prob(model, X).reshape((grid.height, grid.width))
-                    ppp_map = np.clip(ppp, 0, 1).astype(np.float32)
-                    models_for_ens.append(ppp_map)
-                except Exception:
-                    ppp_map = None
-
-            ens = np.nanmean(np.stack(models_for_ens, axis=0), axis=0).astype(np.float32)
-            agree, spread = ensemble_stats(models_for_ens)
+            m2 = np.clip(pcatch * (0.7 + 0.3 * f), 0, 1).astype(np.float32)
+            ens = np.nanmean(np.stack([pcatch, m2], axis=0), axis=0).astype(np.float32)
+            agree, spread = ensemble_stats([pcatch, m2])
 
             tdir = times_root / tid
             tdir.mkdir(parents=True, exist_ok=True)
 
             write_bin_f32(tdir / "pcatch_scoring_f32.bin", pcatch)
-            # legacy name kept for UI compatibility
             write_bin_f32(tdir / "pcatch_frontplus_f32.bin", m2)
-            # explicit boosted-front output
-            write_bin_f32(tdir / "pcatch_frontboost_f32.bin", m2)
-            # hybrid alias (current default pcatch uses HSI+ENM blend)
-            write_bin_f32(tdir / "pcatch_hybrid_f32.bin", pcatch)
-            if ppp_map is not None:
-                write_bin_f32(tdir / "pcatch_ppp_f32.bin", ppp_map)
             write_bin_f32(tdir / "pcatch_ensemble_f32.bin", ens)
             write_bin_f32(tdir / "phab_f32.bin", phab)
-            write_bin_f32(tdir / "phab_hsi_f32.bin", phab_hsi)
-            write_bin_f32(tdir / "phab_enm_f32.bin", phab_enm)
             write_bin_f32(tdir / "pops_f32.bin", pops)
             write_bin_f32(tdir / "agree_f32.bin", agree)
             write_bin_f32(tdir / "spread_f32.bin", spread)
-            write_bin_f32(tdir / "front_f32.bin", f01)
+            write_bin_f32(tdir / "front_f32.bin", f)
 
-            # Component layers (for future client-side toggles / debugging)
-            if os.getenv("SEYDYAAR_SAVE_COMPONENTS", "1") == "1":
-                for k, arr in {**comps, **comps_enm, **pops_comps}.items():
-                    try:
-                        write_bin_f32(tdir / f"{k}_f32.bin", np.asarray(arr, dtype=np.float32))
-                    except Exception:
-                        pass
             write_bin_f32(tdir / "sst_f32.bin", inputs.sst_c.astype(np.float32))
             write_bin_f32(tdir / "chl_f32.bin", inputs.chl_mg_m3.astype(np.float32))
             write_bin_f32(tdir / "current_f32.bin", inputs.current_m_s.astype(np.float32))
@@ -765,4 +672,24 @@ def run_daily(
     }
     _write_meta_index(out_root, run_entry)
     _write_latest_index_and_meta(out_root, run_entry, variant)
+# Write verify summary (for CI artifacts and troubleshooting)
+try:
+    verify_summary = {
+        "version": 1,
+        "run_id": run_id,
+        "generated_at_utc": now_utc.isoformat().replace("+00:00", "Z"),
+        "anchor_date": anchor.isoformat(),
+        "time_source": time_source,
+        "grid": {"width": W, "height": H},
+        "bbox": list(bbox),
+        "species": list(species_profiles.keys()),
+        "variant": variant,
+        "strict_copernicus": bool(strict_cmems),
+        "notes": "verify bundle for GitHub Actions artifacts",
+    }
+    write_json(verify_dir / "summary.json", verify_summary)
+    minify_json_for_web(verify_dir / "summary.json")
+except Exception:
+    pass
+
     return run_id

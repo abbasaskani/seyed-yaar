@@ -18,32 +18,6 @@
         "temp": 0.5,
         "chl": 0.25,
         "ssh": 0.25
-      },
-      "front_method": "belkin",
-      "belkin_size": 7,
-      "belkin_iters": 1,
-      "hybrid_blend_hsi": 0.75,
-      "shelf_scale_km": 120.0,
-      "sss_opt_psu": 36.0,
-      "sss_sigma_psu": 1.5,
-      "mld_opt_m": 30.0,
-      "mld_sigma_m": 25.0,
-      "o2_min_umol_l": 150.0,
-      "o2_softness": 20.0,
-      "ppp_l2": 1.0,
-      "envelope": {
-        "chl_lo": 0.1,
-        "chl_hi": 0.25,
-        "front_lo": 0.2,
-        "front_hi": 0.45,
-        "sst_lo": 22.0,
-        "sst_hi": 34.0,
-        "sss_lo": 34.0,
-        "sss_hi": 38.0,
-        "mld_lo": 10.0,
-        "mld_hi": 120.0,
-        "o2_min": 150.0,
-        "o2_softness": 20.0
       }
     },
     "layer_weights": {
@@ -51,13 +25,7 @@
       "chl": 0.25,
       "front": 0.25,
       "current": 0.1,
-      "waves": 0.0,
-      "sss": 0.05,
-      "mld": 0.05,
-      "o2": 0.05,
-      "eddy": 0.05,
-      "upwelling": 0.03,
-      "bathy": 0.02
+      "waves": 0.1
     },
     "ops_constraints": {
       "waves_hs_soft_max_m": 1.5,
@@ -69,17 +37,7 @@
       "Renner & Warton (2013) MaxEnt~PPP",
       "Lehodey et al. (2008) SEAPODYM"
     ],
-    "notes": "Priors are defaults; tune with AIS-effort/feedback/ensemble for the target region.",
-    "ops_depths_m": [
-      2,
-      5,
-      10
-    ],
-    "ops_depth_weights": [
-      0.6,
-      0.3,
-      0.1
-    ]
+    "notes": "Priors are defaults; tune with AIS-effort/feedback/ensemble for the target region."
   },
   "yellowfin": {
     "label": {
@@ -100,32 +58,6 @@
         "temp": 0.5,
         "chl": 0.25,
         "ssh": 0.25
-      },
-      "front_method": "belkin",
-      "belkin_size": 7,
-      "belkin_iters": 1,
-      "hybrid_blend_hsi": 0.75,
-      "shelf_scale_km": 120.0,
-      "sss_opt_psu": 36.0,
-      "sss_sigma_psu": 1.5,
-      "mld_opt_m": 30.0,
-      "mld_sigma_m": 25.0,
-      "o2_min_umol_l": 150.0,
-      "o2_softness": 20.0,
-      "ppp_l2": 1.0,
-      "envelope": {
-        "chl_lo": 0.1,
-        "chl_hi": 0.25,
-        "front_lo": 0.2,
-        "front_hi": 0.45,
-        "sst_lo": 21.0,
-        "sst_hi": 33.0,
-        "sss_lo": 34.0,
-        "sss_hi": 38.0,
-        "mld_lo": 10.0,
-        "mld_hi": 120.0,
-        "o2_min": 150.0,
-        "o2_softness": 20.0
       }
     },
     "layer_weights": {
@@ -133,13 +65,7 @@
       "chl": 0.23,
       "front": 0.25,
       "current": 0.1,
-      "waves": 0.0,
-      "sss": 0.05,
-      "mld": 0.05,
-      "o2": 0.05,
-      "eddy": 0.05,
-      "upwelling": 0.03,
-      "bathy": 0.02
+      "waves": 0.1
     },
     "ops_constraints": {
       "waves_hs_soft_max_m": 1.5,
@@ -151,16 +77,6 @@
       "Renner & Warton (2013) MaxEnt~PPP",
       "Lehodey et al. (2008) SEAPODYM"
     ],
-    "notes": "Priors are defaults; tune with AIS-effort/feedback/ensemble for the target region.",
-    "ops_depths_m": [
-      2,
-      5,
-      10
-    ],
-    "ops_depth_weights": [
-      0.6,
-      0.3,
-      0.1
-    ]
+    "notes": "Priors are defaults; tune with AIS-effort/feedback/ensemble for the target region."
   }
 }
