@@ -350,6 +350,24 @@ def _try_copernicus_layers(
         waves = _read_nc_var(p, _v0("waves"))
         out["waves_hs_m"] = _to_grid(waves)
 
+        # Optional extra predictors (if configured): salinity (SSS), mixed layer depth (MLD), dissolved oxygen (O2)
+        # These are *optional* to keep the pipeline robust when datasets are not configured yet.
+        status.setdefault("warnings", [])
+        def _try_optional(key: str, out_key: str) -> None:
+            cfg = datasets_cfg.get(key, {}) if isinstance(datasets_cfg, dict) else {}
+            if not str(cfg.get("dataset_id", "")).strip():
+                return
+            try:
+                pp = _subset_one(key)
+                arr = _read_nc_var(pp, _v0(key))
+                out[out_key] = _to_grid(arr)
+            except Exception as ee:
+                status["warnings"].append(f"{key} optional layer skipped: {ee}")
+
+        _try_optional("sss", "sss_psu")
+        _try_optional("mld", "mld_m")
+        _try_optional("o2", "o2_umol_l")
+
 
         qc = np.ones((grid.height, grid.width), dtype=np.uint8)
         conf = qc.astype(np.float32)
@@ -471,29 +489,6 @@ def run_daily(
     strict_cmems = os.getenv("SEYDYAAR_STRICT_COPERNICUS", "0") == "1"
     verify_dir = Path(os.getenv("SEYDYAAR_VERIFY_DIR", out_root / "verify"))
     verify_dir.mkdir(parents=True, exist_ok=True)
-log_dir = Path(os.getenv("SEYDYAAR_LOG_DIR", out_root / "logs"))
-log_dir.mkdir(parents=True, exist_ok=True)
-# Ensure artifact paths are never empty
-(log_dir / "keep.txt").write_text("keep", encoding="utf-8")
-(verify_dir / "keep.txt").write_text("keep", encoding="utf-8")
-manifest_path = log_dir / "download_manifest.jsonl"
-if not manifest_path.exists():
-    manifest_path.write_text("", encoding="utf-8")
-# Record run header (helps debugging even if Copernicus download fails early)
-try:
-    _append_jsonl(manifest_path, {
-        "kind": "run_start",
-        "run_id": "main",
-        "generated_at_utc": now_utc.isoformat().replace("+00:00", "Z"),
-        "anchor_date": anchor.isoformat(),
-        "grid": grid_wh,
-        "past_days": int(past_days),
-        "future_days": int(future_days),
-        "step_hours": int(step_hours),
-    })
-except Exception:
-    pass
-
     verify_time_id = now_utc.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y%m%d_0000Z")
 
     run_meta = {
@@ -610,7 +605,7 @@ except Exception:
                         pass
 
             t_front = gradient_magnitude(layers["sst_c"])
-            c_front = gradient_magnitude(layers["chl_mg_m3"])
+            c_front = gradient_magnitude(np.log10(np.clip(layers["chl_mg_m3"], 1e-6, None)))
             s_front = gradient_magnitude(layers["ssh_m"])
             f = front_score(
                 t_front, c_front, s_front,
@@ -630,7 +625,8 @@ except Exception:
             pops = ops_feasibility(inputs.current_m_s, inputs.waves_hs_m, ops_priors, gear_depth_m=10.0)
             pcatch = np.clip(phab * pops, 0, 1).astype(np.float32)
 
-            m2 = np.clip(pcatch * (0.7 + 0.3 * f), 0, 1).astype(np.float32)
+            front_mult = np.clip(0.9 + 0.3 * f, 0.9, 1.2).astype(np.float32)
+            m2 = np.clip(pcatch * front_mult, 0, 1).astype(np.float32)
             ens = np.nanmean(np.stack([pcatch, m2], axis=0), axis=0).astype(np.float32)
             agree, spread = ensemble_stats([pcatch, m2])
 
@@ -672,24 +668,4 @@ except Exception:
     }
     _write_meta_index(out_root, run_entry)
     _write_latest_index_and_meta(out_root, run_entry, variant)
-# Write verify summary (for CI artifacts and troubleshooting)
-try:
-    verify_summary = {
-        "version": 1,
-        "run_id": run_id,
-        "generated_at_utc": now_utc.isoformat().replace("+00:00", "Z"),
-        "anchor_date": anchor.isoformat(),
-        "time_source": time_source,
-        "grid": {"width": W, "height": H},
-        "bbox": list(bbox),
-        "species": list(species_profiles.keys()),
-        "variant": variant,
-        "strict_copernicus": bool(strict_cmems),
-        "notes": "verify bundle for GitHub Actions artifacts",
-    }
-    write_json(verify_dir / "summary.json", verify_summary)
-    minify_json_for_web(verify_dir / "summary.json")
-except Exception:
-    pass
-
     return run_id
