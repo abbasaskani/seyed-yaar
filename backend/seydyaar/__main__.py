@@ -40,8 +40,8 @@ def main() -> None:
 
     p = sub.add_parser("demo-generate", help="Generate an offline demo run into docs/latest")
     p.add_argument("--date", default="today", help="Run date (YYYY-MM-DD) or 'today'")
-    p.add_argument("--past-days", type=int, default=0, help="Past days to include (max 7 recommended)")
-    p.add_argument("--future-days", type=int, default=0, help="Future days to include (max 4 recommended)")
+    p.add_argument("--past-days", type=int, default=2, help="Past days to include (max 2 recommended)")
+    p.add_argument("--future-days", type=int, default=10, help="Future days to include (max 10 recommended)")
     p.add_argument("--step-hours", type=int, default=6, help="Time step in hours (2 is 'default' for full mode)")
     p.add_argument("--fast", action="store_true", help="Fast demo (coarser grid, fewer background samples)")
     p.add_argument("--out", default=str(Path("docs") / "latest"), help="Output folder")
@@ -65,6 +65,16 @@ def main() -> None:
         help="Comma-separated gear depths (m) to precompute for ops/catch maps",
     )
 
+    p2 = sub.add_parser("run-daily", help="Run a real (scheduled) pipeline into docs/latest (Copernicus if configured)")
+    p2.add_argument("--date", default="today", help="Anchor date (YYYY-MM-DD) or 'today' (UTC)")
+    p2.add_argument("--past-days", type=int, default=7, help="Past days to include (max 7 recommended)")
+    p2.add_argument("--future-days", type=int, default=4, help="Future days to include (max 4 recommended)")
+    p2.add_argument("--step-hours", type=int, default=6, help="Time step in hours (default 6)")
+    p2.add_argument("--out", default=str(Path("docs") / "latest"), help="Output folder")
+    p2.add_argument("--grid", default="220x220", help="Grid WxH, e.g. 220x220")
+
+
+
     args = parser.parse_args()
 
     if args.cmd == "demo-generate":
@@ -82,6 +92,27 @@ def main() -> None:
             export_cog=bool(args.export_cog),
             depths_m=_parse_depths(args.depths),
         )
+    elif args.cmd == "run-daily":
+        from seydyaar.pipeline.run_daily import run_daily
+        import json as _json
+        from pathlib import Path as _Path
+
+        aoi = _json.loads((_Path("backend/config/aoi.geojson")).read_text(encoding="utf-8"))
+        species_profiles = _json.loads((_Path("backend/config/species_profiles.json")).read_text(encoding="utf-8"))
+
+        run_daily(
+            out_root=_Path(args.out),
+            aoi_geojson=aoi,
+            species_profiles=species_profiles,
+            date=args.date,
+            past_days=int(args.past_days),
+            future_days=int(args.future_days),
+            step_hours=int(args.step_hours),
+            grid_wh=args.grid,
+        )
+
+
+
 
 
 if __name__ == "__main__":
