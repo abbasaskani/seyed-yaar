@@ -1,60 +1,89 @@
-name: Run Seyd‑Yaar Daily
+name: Run daily + publish docs (rewrite + verify, v4)
 
 on:
   workflow_dispatch:
   schedule:
-    # 00:00 UTC daily
-    - cron: "0 0 * * *"
+    - cron: "0 3 * * *"  # daily 03:00 UTC
+
+permissions:
+  contents: write
 
 jobs:
   run:
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-
+    runs-on: ubuntu-latest
     env:
-      # Copernicus Marine credentials (set as GitHub Secrets)
+      COPERNICUSMARINE_LOG_LEVEL: INFO
       COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
       COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.COPERNICUSMARINE_SERVICE_PASSWORD }}
 
-      # Keep strict mode ON: if Copernicus download fails, pipeline should flag it.
-      SEYDYAAR_STRICT_COPERNICUS: "1"
+      COPERNICUS_MARINE_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
+      COPERNICUS_MARINE_PASSWORD: ${{ secrets.COPERNICUSMARINE_SERVICE_PASSWORD }}
 
-      # Tunables (optional)
+      SEYDYAAR_STRICT_COPERNICUS: "1"
+      # If set to "1", the workflow will wipe docs/latest/runs/main and fully rebuild.
+      # Default "0" preserves existing runs so only missing timestamps are generated.
+      SEYDYAAR_REWRITE: "0"
+
+      SEYDYAAR_TMPDIR: "backend/.seydyaar_tmp"
+      SEYDYAAR_LOG_DIR: "docs/latest/logs"
+      SEYDYAAR_VERIFY_DIR: "docs/latest/verify"
+
       SEYDYAAR_PAST_DAYS: "2"
       SEYDYAAR_FUTURE_DAYS: "8"
       SEYDYAAR_STEP_HOURS: "6"
       SEYDYAAR_GRID: "220x220"
 
-    steps:
-      - uses: actions/checkout@v4
+      PYTHONUNBUFFERED: "1"
 
-      - uses: actions/setup-python@v5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install backend deps
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
           pip install -U copernicusmarine
 
-      - name: Prepare latest dirs (always create real files)
+      - name: Clean previous outputs (rewrite)
         run: |
+          if [ "${SEYDYAAR_REWRITE:-0}" = "1" ]; then
+            rm -rf docs/latest/runs/main || true
+          fi
           rm -rf docs/latest/verify || true
           rm -rf docs/latest/logs || true
           mkdir -p docs/latest/logs docs/latest/verify
+
+      
           echo "keep" > docs/latest/logs/keep.txt
           echo "keep" > docs/latest/verify/keep.txt
-
-      - name: Run daily
+          : > docs/latest/logs/download_manifest.jsonl
+          echo "{
+  \"ok\": false,
+  \"note\": \"placeholder; will be overwritten by pipeline if it runs successfully\"
+}" > docs/latest/verify/summary.json
+- name: Run pipeline
         shell: bash
         run: |
           set -euo pipefail
           export PYTHONPATH="$GITHUB_WORKSPACE/backend"
-          python -m seydyaar run-daily             --out docs/latest             --past-days "${SEYDYAAR_PAST_DAYS}"             --future-days "${SEYDYAAR_FUTURE_DAYS}"             --step-hours "${SEYDYAAR_STEP_HOURS}"             --grid "${SEYDYAAR_GRID}"
+          python -m seydyaar run-daily             --out docs/latest             --past-days "$SEYDYAAR_PAST_DAYS"             --future-days "$SEYDYAAR_FUTURE_DAYS"             --step-hours "$SEYDYAAR_STEP_HOURS"             --grid "$SEYDYAAR_GRID"
 
-      - name: Upload logs + verify (even on failure)
+      - name: Assert manifest & verify exist
+        if: always()
+        run: |
+          echo "== logs =="
+          ls -lah docs/latest/logs || true
+          test -f docs/latest/logs/download_manifest.jsonl || echo "WARN: manifest missing (pipeline may have failed before writing)"
+          echo "== verify =="
+          find docs/latest/verify -maxdepth 3 -type f -print || true
+
+      - name: Upload verify + logs as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -62,12 +91,11 @@ jobs:
           path: |
             docs/latest/logs/**
             docs/latest/verify/**
-          include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Commit latest to repo
-        if: success()
+      - name: Commit & push updated docs
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
