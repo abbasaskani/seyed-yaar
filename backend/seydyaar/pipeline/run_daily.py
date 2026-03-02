@@ -670,49 +670,51 @@ def run_daily(
     _write_latest_index_and_meta(out_root, run_entry, variant)
 
 
-# --- Always write logs/verify summaries for CI/QA ---
-try:
-    logs_dir = out_root / "logs"
-    verify_dir = out_root / "verify"
-    logs_dir.mkdir(parents=True, exist_ok=True)
-    verify_dir.mkdir(parents=True, exist_ok=True)
-    (logs_dir / "keep.txt").write_text("keep\n", encoding="utf-8")
-    (verify_dir / "keep.txt").write_text("keep\n", encoding="utf-8")
-
-    # Minimal verify summary: existence checks for key outputs
-    summary = {
-        "run_id": run_id,
-        "generated_at_utc": now_utc.isoformat().replace("+00:00", "Z"),
-        "ok": True,
-        "missing": [],
-        "provider_status": provider_status,
-    }
-    # check a few critical files
-    critical = [
-        out_root / "meta_index.json",
-        out_root / "latest" / "meta.json",
-    ]
-    for p in critical:
-        if not p.exists():
-            summary["ok"] = False
-            summary["missing"].append(str(p.relative_to(out_root)))
-    # spot-check first time slice per species (if present)
+    # --- Always write logs/verify summaries for CI/QA ---
     try:
-        first_tid = time_ids[0] if time_ids else None
-        if first_tid:
-            for sp in list(species_profiles.keys())[:3]:
-                tdir = out_root / "runs" / run_id / variant / sp / first_tid
-                for fn in ["pcatch_ensemble_f32.bin", "phab_f32.bin", "pops_f32.bin", "front_f32.bin"]:
-                    fp = tdir / fn
-                    if not fp.exists():
-                        summary["ok"] = False
-                        summary["missing"].append(str(fp.relative_to(out_root)))
-    except Exception as _e:
-        summary["ok"] = False
-        summary["missing"].append(f"spotcheck_error:{type(_e).__name__}")
+        logs_dir = out_root / "logs"
+        verify_dir = out_root / "verify"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        verify_dir.mkdir(parents=True, exist_ok=True)
+        (logs_dir / "keep.txt").write_text("keep\n", encoding="utf-8")
+        (verify_dir / "keep.txt").write_text("keep\n", encoding="utf-8")
 
-    (verify_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
-except Exception:
-    # Never fail the pipeline because of verify/log writing
-    pass
+        # Minimal verify summary: existence checks for key outputs
+        summary = {
+            "run_id": run_id,
+            "generated_at_utc": now_utc.isoformat().replace("+00:00", "Z"),
+            "ok": True,
+            "missing": [],
+            "provider_status": provider_status,
+        }
+
+        critical = [
+            out_root / "meta_index.json",
+            out_root / "latest" / "meta.json",
+        ]
+        for pth in critical:
+            if not pth.exists():
+                summary["ok"] = False
+                summary["missing"].append(str(pth.relative_to(out_root)))
+
+        # Spot-check first time slice per species (if present)
+        try:
+            first_tid = time_ids[0] if time_ids else None
+            if first_tid:
+                for sp in list(species_profiles.keys())[:3]:
+                    tdir = out_root / "runs" / run_id / variant / sp / first_tid
+                    for fn in ["pcatch_ensemble_f32.bin", "phab_f32.bin", "pops_f32.bin", "front_f32.bin"]:
+                        fp = tdir / fn
+                        if not fp.exists():
+                            summary["ok"] = False
+                            summary["missing"].append(str(fp.relative_to(out_root)))
+        except Exception as _e:
+            summary["ok"] = False
+            summary["missing"].append(f"spotcheck_error:{type(_e).__name__}")
+
+        (verify_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        # Never fail the pipeline because of verify/log writing
+        pass
+
     return run_id
