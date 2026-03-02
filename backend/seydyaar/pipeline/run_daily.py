@@ -668,4 +668,66 @@ def run_daily(
     }
     _write_meta_index(out_root, run_entry)
     _write_latest_index_and_meta(out_root, run_entry, variant)
+
+# --- Verify + logs (always create real files for CI artifacts) ---
+logs_dir = out_root / "logs"
+verify_dir = out_root / "verify"
+logs_dir.mkdir(parents=True, exist_ok=True)
+verify_dir.mkdir(parents=True, exist_ok=True)
+# non-hidden keep files so upload-artifact always finds something
+(logs_dir / "keep.txt").write_text("keep\n", encoding="utf-8")
+(verify_dir / "keep.txt").write_text("keep\n", encoding="utf-8")
+
+# Basic verification: check that key outputs exist for each time_id (first species only for speed)
+verify = {
+    "run_id": run_id,
+    "generated_at_utc": now_utc.isoformat().replace("+00:00", "Z"),
+    "anchor_date_utc": anchor.isoformat(),
+    "variant": variant,
+    "time_count": len(time_ids),
+    "species": list(species_profiles.keys()),
+    "models": ["scoring", "frontplus", "ensemble"],
+    "provider_status": provider_status,
+    "checks": [],
+    "ok": True,
+}
+
+# pick one species folder to verify structure
+sp0 = list(species_profiles.keys())[0] if species_profiles else None
+required_bins = ["pcatch_scoring_f32.bin","pcatch_frontplus_f32.bin","pcatch_ensemble_f32.bin","phab_f32.bin","spread_f32.bin","conf_f32.bin"]
+if sp0:
+    for tid in time_ids[:min(48, len(time_ids))]:  # cap to avoid huge verify files
+        tdir = out_root / "runs" / run_id / tid / sp0
+        entry = {"time_id": tid, "path": str(tdir.relative_to(out_root)), "missing": []}
+        for fn in required_bins:
+            if not (tdir / fn).exists():
+                entry["missing"].append(fn)
+        if entry["missing"]:
+            verify["ok"] = False
+        verify["checks"].append(entry)
+
+# Also verify meta files exist
+meta_files = [
+    out_root / "meta_index.json",
+    out_root / "latest" / "meta_index.json",
+    out_root / "latest" / "meta.json",
+    out_root / "runs" / run_id / "meta.json",
+]
+missing_meta = [str(p.relative_to(out_root)) for p in meta_files if not p.exists()]
+if missing_meta:
+    verify["ok"] = False
+verify["missing_meta"] = missing_meta
+
+write_json(verify_dir / "summary.json", verify)
+minify_json_for_web(verify_dir / "summary.json")
+
+# Lightweight manifest of provider status / run context
+manifest = {
+    "run_id": run_id,
+    "provider_status": provider_status,
+    "note": "This file is created to make CI debugging and artifacts deterministic.",
+}
+write_json(logs_dir / "download_manifest.json", manifest)
+minify_json_for_web(logs_dir / "download_manifest.json")
+
     return run_id
