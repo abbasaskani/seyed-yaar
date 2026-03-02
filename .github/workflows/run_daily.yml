@@ -1,8 +1,43 @@
-# Patch snippet for your existing workflow (keep your name/on/schedule as-is)
-# Key fixes:
-# 1) Create real files in logs/verify BEFORE running python so upload-artifact always finds something.
-# 2) Upload artifacts even if the run step fails (if: always()).
-# 3) Copernicus credentials must be provided via GitHub Secrets or strict mode must be turned off.
+name: Run Seyd‑Yaar Daily
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 00:00 UTC daily
+    - cron: "0 0 * * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    env:
+      # Copernicus Marine credentials (set as GitHub Secrets)
+      COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
+      COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.COPERNICUSMARINE_SERVICE_PASSWORD }}
+
+      # Keep strict mode ON: if Copernicus download fails, pipeline should flag it.
+      SEYDYAAR_STRICT_COPERNICUS: "1"
+
+      # Tunables (optional)
+      SEYDYAAR_PAST_DAYS: "2"
+      SEYDYAAR_FUTURE_DAYS: "8"
+      SEYDYAAR_STEP_HOURS: "6"
+      SEYDYAAR_GRID: "220x220"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install -U copernicusmarine
 
       - name: Prepare latest dirs (always create real files)
         run: |
@@ -17,7 +52,7 @@
         run: |
           set -euo pipefail
           export PYTHONPATH="$GITHUB_WORKSPACE/backend"
-          python -m seydyaar run-daily             --out docs/latest             --past-days "${SEYDYAAR_PAST_DAYS:-2}"             --future-days "${SEYDYAAR_FUTURE_DAYS:-8}"             --step-hours "${SEYDYAAR_STEP_HOURS:-6}"             --grid "${SEYDYAAR_GRID:-220x220}"
+          python -m seydyaar run-daily             --out docs/latest             --past-days "${SEYDYAAR_PAST_DAYS}"             --future-days "${SEYDYAAR_FUTURE_DAYS}"             --step-hours "${SEYDYAAR_STEP_HOURS}"             --grid "${SEYDYAAR_GRID}"
 
       - name: Upload logs + verify (even on failure)
         if: always()
@@ -30,3 +65,12 @@
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Commit latest to repo
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/latest
+          git commit -m "Update docs/latest (auto)" || echo "No changes to commit"
+          git push
