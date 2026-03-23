@@ -15,24 +15,19 @@ jobs:
       COPERNICUSMARINE_LOG_LEVEL: INFO
       COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
       COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.COPERNICUSMARINE_SERVICE_PASSWORD }}
-
       COPERNICUS_MARINE_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
       COPERNICUS_MARINE_PASSWORD: ${{ secrets.COPERNICUSMARINE_SERVICE_PASSWORD }}
-
       SEYDYAAR_STRICT_COPERNICUS: "1"
       # If set to "1", the workflow will wipe docs/latest/runs/main and fully rebuild.
       # Default "0" preserves existing runs so only missing timestamps are generated.
       SEYDYAAR_REWRITE: "0"
-
       SEYDYAAR_TMPDIR: "backend/.seydyaar_tmp"
       SEYDYAAR_LOG_DIR: "docs/latest/logs"
       SEYDYAAR_VERIFY_DIR: "docs/latest/verify"
-
       SEYDYAAR_PAST_DAYS: "2"
       SEYDYAAR_FUTURE_DAYS: "8"
       SEYDYAAR_STEP_HOURS: "6"
       SEYDYAAR_GRID: "220x220"
-
       PYTHONUNBUFFERED: "1"
 
     steps:
@@ -51,23 +46,30 @@ jobs:
           pip install -U copernicusmarine
 
       - name: Clean previous outputs (rewrite)
+        shell: bash
         run: |
+          set -euo pipefail
+
           if [ "${SEYDYAAR_REWRITE:-0}" = "1" ]; then
             rm -rf docs/latest/runs/main || true
           fi
+
           rm -rf docs/latest/verify || true
           rm -rf docs/latest/logs || true
           mkdir -p docs/latest/logs docs/latest/verify
 
-      
           echo "keep" > docs/latest/logs/keep.txt
           echo "keep" > docs/latest/verify/keep.txt
           : > docs/latest/logs/download_manifest.jsonl
-          echo "{
-  \"ok\": false,
-  \"note\": \"placeholder; will be overwritten by pipeline if it runs successfully\"
-}" > docs/latest/verify/summary.json
-- name: Run pipeline
+
+          cat > docs/latest/verify/summary.json <<'JSON'
+          {
+            "ok": false,
+            "note": "placeholder; will be overwritten by pipeline if it runs successfully"
+          }
+          JSON
+
+      - name: Run pipeline
         shell: bash
         run: |
           set -euo pipefail
