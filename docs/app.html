@@ -8,11 +8,11 @@
   <meta name="theme-color" content="#03243b" />
   <link rel="icon" href="assets/logo.png" />
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 
   <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"
+ />
 </head>
 <body class="ocean appPage">
   <div class="bgPhoto" aria-hidden="true"></div>
@@ -58,28 +58,19 @@
       <div class="row">
         <label class="lbl" id="lblModel">Model</label>
         <select id="modelSelect">
-
           <option value="ensemble">Ensemble (default)</option>
-          <option value="hybrid">Hybrid (HSI + ENM)</option>
-          <option value="scoring">Scoring (HSI)</option>
+          <option value="scoring">Scoring</option>
           <option value="frontplus">Front+ (Scoring)</option>
-          <option value="frontboost">FrontBoost (1.2×)</option>
-          <option value="ppp">MaxEnt/PPP (needs data)</option>
+          <option value="ppp">MaxEnt/PPP</option>
         </select>
       </div>
 
       <div class="row">
         <label class="lbl" id="lblMap">Map</label>
         <select id="mapSelect">
-
           <option value="pcatch">Pcatch (Habitat×Ops)</option>
-          <option value="phab">Habitat (selected model)</option>
+          <option value="phab">Habitat Suitability</option>
           <option value="pops">Operational Feasibility</option>
-          <option value="front">Front intensity</option>
-          <option value="sst">SST</option>
-          <option value="chl">Chl</option>
-          <option value="current">Current speed</option>
-          <option value="waves">Wave height</option>
           <option value="agree">Agreement (ensemble)</option>
           <option value="spread">Spread/Std (ensemble)</option>
           <option value="conf">Confidence / Opacity</option>
@@ -153,8 +144,8 @@
         
         <div class="clusterRow">
           <select id="clusterMethod" title="Clustering method">
-            <option value="contour" selected>Contour (connected areas)</option>
-            <option value="dbscan">DBSCAN (point density)</option>
+            <option value="contour">Contour (connected areas)</option>
+            <option value="dbscan" selected>DBSCAN (point density)</option>
           </select>
 
           <select id="clusterThreshold" title="Minimum probability to include in clustering (current layer)">
@@ -175,6 +166,7 @@
           </select>
 
           <button id="clusterBtn" class="btnPrimary">Cluster</button>
+          <button id="clusterClearBtn" class="btnGhost">Clear</button>
         </div>
 
         <div class="hintSmall">Threshold is absolute probability (current layer). MinPts = minimum size (cells) for Contour mode.</div>
@@ -371,6 +363,21 @@ Example:
         <button id="downloadGeoBtn" class="btnGhost">Download GeoJSON</button>
       </div>
 
+      <details class="details">
+        <summary>Latitude display offset (UI only)</summary>
+        <div class="row two offsetRow">
+          <div>
+            <label class="lbl">Lat offset</label>
+            <input id="latOffsetInput" type="number" step="0.01" value="0.27" />
+          </div>
+          <div class="offsetButtons">
+            <button id="applyLatOffsetBtn" class="btnGhost" type="button">Apply</button>
+            <button id="resetLatOffsetBtn" class="btnGhost" type="button">Reset</button>
+          </div>
+        </div>
+        <div class="muted small">UI only: raw data, exports, and map georeferencing stay unchanged.</div>
+      </details>
+
       <div class="row">
         <button id="feedbackBtn" class="btnNeon">+ Feedback</button>
         <button id="exportFbBtn" class="btnGhost">Export feedback</button>
@@ -453,9 +460,9 @@ Example:
 
   <div id="toastHost" class="toastHost" aria-live="polite" aria-atomic="true"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"
+></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
