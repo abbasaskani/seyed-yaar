@@ -2,7 +2,8 @@
   "name": "Seyd‑Yaar | صیدیار",
   "short_name": "Seyd‑Yaar",
   "start_url": "./app.html",
-  "display": "standalone", "scope": "./",
+  "display": "standalone",
+  "scope": "./",
   "background_color": "#021624",
   "theme_color": "#03243b",
   "icons": [

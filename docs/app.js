@@ -3,9 +3,10 @@ const $ = (id) => document.getElementById(id);
 const safeText = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
 const safeHTML = (id, html) => { const el = $(id); if (el) el.innerHTML = html; };
 
-const UI_LAT_OFFSET = 0.27;
-function toDisplayLat(lat){ return Number.isFinite(lat) ? (lat - UI_LAT_OFFSET) : lat; }
-function fmtDisplayLat(lat, digits=4){ const v = toDisplayLat(lat); return Number.isFinite(v) ? v.toFixed(digits) : "—"; }
+const LAT_UI_OFFSET = 0.27;
+const uiLat = (lat) => Number.isFinite(lat) ? (lat - LAT_UI_OFFSET) : lat;
+const rawLatFromUi = (lat) => Number.isFinite(lat) ? (lat + LAT_UI_OFFSET) : lat;
+const fmtUiLat = (lat, d=4) => Number.isFinite(lat) ? uiLat(lat).toFixed(d) : "—";
 
 const strings = {
   en: {
@@ -369,7 +370,7 @@ function initMap(){
 
   map.on("click", (e)=>{
     if(!e?.latlng) return;
-    $("fbLat").value = fmtDisplayLat(e.latlng.lat, 4);
+    $("fbLat").value = fmtUiLat(e.latlng.lat, 4);
     $("fbLon").value = e.latlng.lng.toFixed(4);
   });
 
@@ -451,7 +452,7 @@ function drawGrid05(){
   const padLon = (east-west)*0.05;
 
   for(let lat=latL0; lat<=latL1+1e-9; lat+=labelStep){
-    const icon = L.divIcon({className:"", html:`<div class="gridLabel gridLabelLat">${fmtDisplayLat(lat, 1)}°</div>`, iconSize:[1,1]});
+    const icon = L.divIcon({className:"", html:`<div class="gridLabel gridLabelLat">${fmtUiLat(lat,1)}°</div>`, iconSize:[1,1]});
     labels.push(L.marker([lat, west+padLon], {pane:"gridPane", icon, interactive:false}));
   }
   for(let lon=lonL0; lon<=lonL1+1e-9; lon+=labelStep){
@@ -618,7 +619,7 @@ async function showPointPopup(lat, lon, metaInfo){
     const currentKey = (typeof currentPerTimeKey==="function") ? currentPerTimeKey() : "current";
     const html = `
       <div style="font-weight:900;margin-bottom:6px">${metaInfo?.kind==="top" ? ("Top #"+metaInfo.rank) : (metaInfo?.kind==="cluster-top" ? ("Cluster #"+metaInfo.clusterId+" • #"+metaInfo.rank) : (metaInfo?.kind==="cluster-center" ? ("Cluster Center #"+metaInfo.clusterId) : "Point"))}</div>
-      <div><b>Lat/Lon:</b> ${fmtDisplayLat(lat, 4)}, ${lon.toFixed(4)}</div>
+      <div><b>Lat/Lon:</b> ${fmtUiLat(lat,4)}, ${lon.toFixed(4)}</div>
       <div><b>${currentKey}:</b> ${(v*100).toFixed(2)}%</div>
       <div><b>Percentile(AOI):</b> ${pct==null ? "—" : "P"+Math.round(pct*100)}</div>
       <div><b>Rank(AOI):</b> ${(metaInfo?.rank!=null) ? ("#"+metaInfo.rank) : (rank==null ? "—" : "#"+rank)}</div>
@@ -658,7 +659,7 @@ function addPin(lat, lon, v01){
     if(!window.pinLayer) window.pinLayer = L.layerGroup().addTo(map);
     const icon = L.divIcon({className:"", html:`<div class="pinMarker"></div>`, iconSize:[14,14], iconAnchor:[7,7]});
     const mk = L.marker([lat,lon], {icon}).addTo(window.pinLayer);
-    mk.bindPopup(`<b>Pin</b><br>${lat.toFixed(4)}, ${lon.toFixed(4)}<br><b>${(v01*100).toFixed(2)}%</b><br>${rec.time}`);
+    mk.bindPopup(`<b>Pin</b><br>${fmtUiLat(lat,4)}, ${lon.toFixed(4)}<br><b>${(v01*100).toFixed(2)}%</b><br>${rec.time}`);
   }catch(e){ console.error(e); }
 }
 
@@ -1083,7 +1084,7 @@ ensurePanes();
 }
 
 function selectCluster(info){
-  const topRows = (info.top||[]).map((p,i)=>`<div>#${i+1} • ${(p.v*100).toFixed(1)}% • ${p.lat.toFixed(3)}, ${p.lon.toFixed(3)}</div>`).join("");
+  const topRows = (info.top||[]).map((p,i)=>`<div>#${i+1} • ${(p.v*100).toFixed(1)}% • ${fmtUiLat(p.lat,3)}, ${p.lon.toFixed(3)}</div>`).join("");
   const html = `
     <div style="font-weight:900;margin-bottom:6px">Cluster #${info.id}</div>
     <div>n=${info.n} • mean ${(info.mean*100).toFixed(1)}% • max ${(info.mx*100).toFixed(1)}% • area≈${(info.area||0).toFixed(1)} km²</div>
@@ -1219,7 +1220,7 @@ map.on("moveend", ()=>{ try{ drawGrid05(); }catch(_){} });
       const v = state.lastComputed.arrShown[y*W+x];
       if(!Number.isFinite(v)) return;
       const p = percentileOfValue(v);
-      const txt = `${lat.toFixed(3)}, ${lon.toFixed(3)} • ${(v*100).toFixed(1)}%` + (p!=null ? ` • P${Math.round(p*100)}` : "");
+      const txt = `${fmtUiLat(lat,3)}, ${lon.toFixed(3)} • ${(v*100).toFixed(1)}%` + (p!=null ? ` • P${Math.round(p*100)}` : "");
       if(!hoverTooltip){
         hoverTooltip = L.tooltip({sticky:true, direction:"top", opacity:0.85}).setContent(txt);
         hoverTooltip.setLatLng(e.latlng);
@@ -1245,9 +1246,9 @@ $("clusterBtn")?.addEventListener("click", ()=>{ try{ buildClusters(); }catch(e)
 
 $("exportTopBtn")?.addEventListener("click", ()=>{
   const top = state.lastComputed?.topFiltered || [];
-  const lines = ["rank,lat,lon,prob_pct,percentile"];
+  const lines = ["rank,lat_ui_minus_0.27,lon,prob_pct,percentile"];
   top.forEach((p,i)=>{
-    lines.push([i+1,toDisplayLat(p.lat),p.lon,(p.p*100).toFixed(2),(p.pct!=null?Math.round(p.pct*100):"")].join(","));
+    lines.push([i+1,uiLat(p.lat).toFixed(6),p.lon,(p.p).toFixed(1), (p.pct!=null?Math.round(p.pct*100):"")].join(","));
   });
   const blob=new Blob([lines.join("\n")], {type:"text/csv"});
   const url=URL.createObjectURL(blob);
@@ -1258,9 +1259,9 @@ $("exportTopBtn")?.addEventListener("click", ()=>{
 
 $("exportPinsBtn")?.addEventListener("click", ()=>{
   const pins = state.pins || [];
-  const lines = ["lat,lon,prob_pct,percentile,rank,time,layer"];
+  const lines = ["lat_ui_minus_0.27,lon,prob_pct,percentile,rank,time,layer"];
   pins.forEach(p=>{
-    lines.push([toDisplayLat(p.lat),p.lon,(p.prob*100).toFixed(2),(p.percentile!=null?Math.round(p.percentile*100):""),(p.rank||""),p.time,p.layer].join(","));
+    lines.push([uiLat(p.lat).toFixed(6),p.lon,(p.prob*100).toFixed(2),(p.percentile!=null?Math.round(p.percentile*100):""),(p.rank||""),p.time,p.layer].join(","));
   });
   const blob=new Blob([lines.join("\n")], {type:"text/csv"});
   const url=URL.createObjectURL(blob);
@@ -1499,7 +1500,7 @@ function renderTop10(list, covs){
     const showOnMap = (pt.rank<=10);
     const popup = `
       <div style="font-weight:900">#${pt.rank} • P=${(pt.p*100).toFixed(1)}</div>
-      <div class="muted">Lat ${fmtDisplayLat(pt.lat, 4)} • Lon ${pt.lon.toFixed(4)}</div>
+      <div class="muted">Lat ${fmtUiLat(pt.lat,4)} • Lon ${pt.lon.toFixed(4)}</div>
     `;
     if(showOnMap){
       const icon = L.divIcon({
@@ -1521,7 +1522,7 @@ function renderTop10(list, covs){
     rows.push({
       "#": pt.rank,
       "P%": `<span class="badge ${badgeClass}">${pPct.toFixed(1)}%</span>`,
-      "Lat": fmtDisplayLat(pt.lat, 4),
+      "Lat": fmtUiLat(pt.lat,4),
       "Lon": pt.lon.toFixed(4),
       "SST": (sst!=null)? sst.toFixed(2) : "—",
       "Chl": (chl!=null)? chl.toFixed(3) : "—",
@@ -1926,8 +1927,8 @@ async function loadSpeciesMetaAndInit(){
 
 
   // AOI UI defaults (bbox = grid bounds)
-  $("bboxLatMin").value = state.grid.lat_min.toFixed(4);
-  $("bboxLatMax").value = state.grid.lat_max.toFixed(4);
+  $("bboxLatMin").value = fmtUiLat(state.grid.lat_min, 4);
+  $("bboxLatMax").value = fmtUiLat(state.grid.lat_max, 4);
   $("bboxLonMin").value = state.grid.lon_min.toFixed(4);
   $("bboxLonMax").value = state.grid.lon_max.toFixed(4);
   // Don't erase user's AOI on species switch if it exists (AOI is a user intent)
@@ -1936,8 +1937,8 @@ async function loadSpeciesMetaAndInit(){
   }
   state.analysisMask = combineMask(state.baseMask, state.userMask);
   // init filter bbox defaults too
-  $("filterBboxLatMin").value = state.grid.lat_min.toFixed(4);
-  $("filterBboxLatMax").value = state.grid.lat_max.toFixed(4);
+  $("filterBboxLatMin").value = fmtUiLat(state.grid.lat_min, 4);
+  $("filterBboxLatMax").value = fmtUiLat(state.grid.lat_max, 4);
   $("filterBboxLonMin").value = state.grid.lon_min.toFixed(4);
   $("filterBboxLonMax").value = state.grid.lon_max.toFixed(4);
   updateAoiStatus();
@@ -2097,7 +2098,7 @@ function parsePointsToPolygonGeoJSON(txt, name="points_poly"){
     // assume lat,lon (most common). We'll treat |lat|<=90 as lat.
     let lat=a, lon=b;
     if(Math.abs(a)>90 && Math.abs(b)<=90){ lon=a; lat=b; }
-    pts.push([lon, lat]);
+    pts.push([lon, rawLatFromUi(lat)]);
   }
   if(pts.length < 3) throw new Error("Need at least 3 points");
   // close ring
@@ -2140,7 +2141,7 @@ $("aoiFile").addEventListener("change", async (e)=>{
   applyUserAoiFromText();
 });
 $("useBboxBtn").addEventListener("click", ()=>{
-  const latMin=parseFloat($("bboxLatMin").value), latMax=parseFloat($("bboxLatMax").value);
+  const latMin=rawLatFromUi(parseFloat($("bboxLatMin").value)), latMax=rawLatFromUi(parseFloat($("bboxLatMax").value));
   const lonMin=parseFloat($("bboxLonMin").value), lonMax=parseFloat($("bboxLonMax").value);
   if(!isFinite(latMin)||!isFinite(latMax)||!isFinite(lonMin)||!isFinite(lonMax)){ alert("Invalid bbox"); return; }
   const poly = [[
@@ -2214,7 +2215,7 @@ $("filterAoiFile").addEventListener("change", async (e)=>{
   applyFilterAoiFromText();
 });
 $("useFilterBboxBtn").addEventListener("click", ()=>{
-  const latMin=parseFloat($("filterBboxLatMin").value), latMax=parseFloat($("filterBboxLatMax").value);
+  const latMin=rawLatFromUi(parseFloat($("filterBboxLatMin").value)), latMax=rawLatFromUi(parseFloat($("filterBboxLatMax").value));
   const lonMin=parseFloat($("filterBboxLonMin").value), lonMax=parseFloat($("filterBboxLonMax").value);
   if(!isFinite(latMin)||!isFinite(latMax)||!isFinite(lonMin)||!isFinite(lonMax)){ alert("Invalid bbox"); return; }
   const poly = [[[lonMin,latMin],[lonMax,latMin],[lonMax,latMax],[lonMin,latMax],[lonMin,latMin]]];
@@ -2412,7 +2413,7 @@ $("saveFbBtn").addEventListener("click", async ()=>{
     return;
   }
   const rating = $("fbRating").value;
-  const lat = parseFloat($("fbLat").value);
+  const lat = rawLatFromUi(parseFloat($("fbLat").value));
   const lon = parseFloat($("fbLon").value);
   const depth = parseInt($("fbDepth").value,10);
   const notes = ($("fbNotes").value || "").slice(0, 500);

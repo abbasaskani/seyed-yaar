@@ -15,19 +15,22 @@ jobs:
       COPERNICUSMARINE_LOG_LEVEL: INFO
       COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
       COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.COPERNICUSMARINE_SERVICE_PASSWORD }}
+
       COPERNICUS_MARINE_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
       COPERNICUS_MARINE_PASSWORD: ${{ secrets.COPERNICUSMARINE_SERVICE_PASSWORD }}
+
       SEYDYAAR_STRICT_COPERNICUS: "1"
-      # If set to "1", the workflow will wipe docs/latest/runs/main and fully rebuild.
-      # Default "0" preserves existing runs so only missing timestamps are generated.
-      SEYDYAAR_REWRITE: "0"
+      SEYDYAAR_REWRITE: "1"
+
       SEYDYAAR_TMPDIR: "backend/.seydyaar_tmp"
       SEYDYAAR_LOG_DIR: "docs/latest/logs"
       SEYDYAAR_VERIFY_DIR: "docs/latest/verify"
+
       SEYDYAAR_PAST_DAYS: "2"
       SEYDYAAR_FUTURE_DAYS: "8"
       SEYDYAAR_STEP_HOURS: "6"
       SEYDYAAR_GRID: "220x220"
+
       PYTHONUNBUFFERED: "1"
 
     steps:
@@ -46,28 +49,11 @@ jobs:
           pip install -U copernicusmarine
 
       - name: Clean previous outputs (rewrite)
-        shell: bash
         run: |
-          set -euo pipefail
-
-          if [ "${SEYDYAAR_REWRITE:-0}" = "1" ]; then
-            rm -rf docs/latest/runs/main || true
-          fi
-
+          rm -rf docs/latest/runs/main || true
           rm -rf docs/latest/verify || true
           rm -rf docs/latest/logs || true
           mkdir -p docs/latest/logs docs/latest/verify
-
-          echo "keep" > docs/latest/logs/keep.txt
-          echo "keep" > docs/latest/verify/keep.txt
-          : > docs/latest/logs/download_manifest.jsonl
-
-          cat > docs/latest/verify/summary.json <<'JSON'
-          {
-            "ok": false,
-            "note": "placeholder; will be overwritten by pipeline if it runs successfully"
-          }
-          JSON
 
       - name: Run pipeline
         shell: bash
@@ -81,7 +67,7 @@ jobs:
         run: |
           echo "== logs =="
           ls -lah docs/latest/logs || true
-          test -f docs/latest/logs/download_manifest.jsonl || echo "WARN: manifest missing (pipeline may have failed before writing)"
+          test -f docs/latest/logs/download_manifest.jsonl
           echo "== verify =="
           find docs/latest/verify -maxdepth 3 -type f -print || true
 
@@ -93,7 +79,8 @@ jobs:
           path: |
             docs/latest/logs/**
             docs/latest/verify/**
-          if-no-files-found: warn
+          if-no-files-found: error
+          include-hidden-files: true
           retention-days: 7
 
       - name: Commit & push updated docs

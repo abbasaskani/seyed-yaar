@@ -1,6 +1,6 @@
 /* Seyd‑Yaar Service Worker — cache static assets, but ALWAYS refresh dynamic data (latest/ + runs/) */
 
-const CACHE = "seydyaar-v0.3.2"; // bump this when you change SW
+const CACHE = "seydyaar-v0.4.0"; // bump this when you change SW
 
 // Only STATIC assets here. ❗Do NOT pre-cache latest/* or runs/*
 const CORE = [
@@ -45,6 +45,14 @@ self.addEventListener("fetch", (event) => {
   // Only handle same-origin requests.
   if (url.origin !== self.location.origin) return;
 
+  const acceptHeader = req.headers.get("accept") || "";
+  if (req.mode === "navigate" || acceptHeader.includes("text/html")) {
+    event.respondWith(
+      fetch(req).catch(() => caches.match("./app.html") || caches.match("./index.html"))
+    );
+    return;
+  }
+
   // ✅ Dynamic data: network-first (no-store)
   if (isDynamic(url)) {
     event.respondWith(
@@ -62,13 +70,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ✅ Navigation requests: always keep the app reachable
-  if (req.mode === "navigate") {
-    event.respondWith(
-      fetch(req).catch(() => caches.match("./app.html").then((hit) => hit || caches.match("./index.html")))
-    );
-    return;
-  }
   // ✅ Static assets: cache-first
   event.respondWith(
     caches.match(req).then((hit) => {
