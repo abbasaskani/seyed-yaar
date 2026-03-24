@@ -3,6 +3,10 @@ const $ = (id) => document.getElementById(id);
 const safeText = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
 const safeHTML = (id, html) => { const el = $(id); if (el) el.innerHTML = html; };
 
+const UI_LAT_OFFSET = 0.27;
+function toDisplayLat(lat){ return Number.isFinite(lat) ? (lat - UI_LAT_OFFSET) : lat; }
+function fmtDisplayLat(lat, digits=4){ const v = toDisplayLat(lat); return Number.isFinite(v) ? v.toFixed(digits) : "—"; }
+
 const strings = {
   en: {
     subtitle: "Catch Probability (Habitat × Ops) + Uncertainty",
@@ -365,7 +369,7 @@ function initMap(){
 
   map.on("click", (e)=>{
     if(!e?.latlng) return;
-    $("fbLat").value = e.latlng.lat.toFixed(4);
+    $("fbLat").value = fmtDisplayLat(e.latlng.lat, 4);
     $("fbLon").value = e.latlng.lng.toFixed(4);
   });
 
@@ -447,7 +451,7 @@ function drawGrid05(){
   const padLon = (east-west)*0.05;
 
   for(let lat=latL0; lat<=latL1+1e-9; lat+=labelStep){
-    const icon = L.divIcon({className:"", html:`<div class="gridLabel gridLabelLat">${lat.toFixed(1)}°</div>`, iconSize:[1,1]});
+    const icon = L.divIcon({className:"", html:`<div class="gridLabel gridLabelLat">${fmtDisplayLat(lat, 1)}°</div>`, iconSize:[1,1]});
     labels.push(L.marker([lat, west+padLon], {pane:"gridPane", icon, interactive:false}));
   }
   for(let lon=lonL0; lon<=lonL1+1e-9; lon+=labelStep){
@@ -614,7 +618,7 @@ async function showPointPopup(lat, lon, metaInfo){
     const currentKey = (typeof currentPerTimeKey==="function") ? currentPerTimeKey() : "current";
     const html = `
       <div style="font-weight:900;margin-bottom:6px">${metaInfo?.kind==="top" ? ("Top #"+metaInfo.rank) : (metaInfo?.kind==="cluster-top" ? ("Cluster #"+metaInfo.clusterId+" • #"+metaInfo.rank) : (metaInfo?.kind==="cluster-center" ? ("Cluster Center #"+metaInfo.clusterId) : "Point"))}</div>
-      <div><b>Lat/Lon:</b> ${lat.toFixed(4)}, ${lon.toFixed(4)}</div>
+      <div><b>Lat/Lon:</b> ${fmtDisplayLat(lat, 4)}, ${lon.toFixed(4)}</div>
       <div><b>${currentKey}:</b> ${(v*100).toFixed(2)}%</div>
       <div><b>Percentile(AOI):</b> ${pct==null ? "—" : "P"+Math.round(pct*100)}</div>
       <div><b>Rank(AOI):</b> ${(metaInfo?.rank!=null) ? ("#"+metaInfo.rank) : (rank==null ? "—" : "#"+rank)}</div>
@@ -1243,7 +1247,7 @@ $("exportTopBtn")?.addEventListener("click", ()=>{
   const top = state.lastComputed?.topFiltered || [];
   const lines = ["rank,lat,lon,prob_pct,percentile"];
   top.forEach((p,i)=>{
-    lines.push([i+1,p.lat,p.lon,(p.p).toFixed(1), (p.pct!=null?Math.round(p.pct*100):"")].join(","));
+    lines.push([i+1,toDisplayLat(p.lat),p.lon,(p.p*100).toFixed(2),(p.pct!=null?Math.round(p.pct*100):"")].join(","));
   });
   const blob=new Blob([lines.join("\n")], {type:"text/csv"});
   const url=URL.createObjectURL(blob);
@@ -1256,7 +1260,7 @@ $("exportPinsBtn")?.addEventListener("click", ()=>{
   const pins = state.pins || [];
   const lines = ["lat,lon,prob_pct,percentile,rank,time,layer"];
   pins.forEach(p=>{
-    lines.push([p.lat,p.lon,(p.prob*100).toFixed(2),(p.percentile!=null?Math.round(p.percentile*100):""),(p.rank||""),p.time,p.layer].join(","));
+    lines.push([toDisplayLat(p.lat),p.lon,(p.prob*100).toFixed(2),(p.percentile!=null?Math.round(p.percentile*100):""),(p.rank||""),p.time,p.layer].join(","));
   });
   const blob=new Blob([lines.join("\n")], {type:"text/csv"});
   const url=URL.createObjectURL(blob);
@@ -1495,7 +1499,7 @@ function renderTop10(list, covs){
     const showOnMap = (pt.rank<=10);
     const popup = `
       <div style="font-weight:900">#${pt.rank} • P=${(pt.p*100).toFixed(1)}</div>
-      <div class="muted">Lat ${pt.lat.toFixed(4)} • Lon ${pt.lon.toFixed(4)}</div>
+      <div class="muted">Lat ${fmtDisplayLat(pt.lat, 4)} • Lon ${pt.lon.toFixed(4)}</div>
     `;
     if(showOnMap){
       const icon = L.divIcon({
@@ -1517,7 +1521,7 @@ function renderTop10(list, covs){
     rows.push({
       "#": pt.rank,
       "P%": `<span class="badge ${badgeClass}">${pPct.toFixed(1)}%</span>`,
-      "Lat": pt.lat.toFixed(4),
+      "Lat": fmtDisplayLat(pt.lat, 4),
       "Lon": pt.lon.toFixed(4),
       "SST": (sst!=null)? sst.toFixed(2) : "—",
       "Chl": (chl!=null)? chl.toFixed(3) : "—",
