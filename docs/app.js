@@ -2622,7 +2622,7 @@ window.__SY.getSuppress = ()=> state.__suppressMapClickUntil;
 
 window.__SY.xyToLatLon = xyToLatLon;
 window.__SY.latLonToXY = latLonToXY;
-
+//...........//
 
 window._gridIndexFromLatLon = gridIndexFromLatLon;
 window._rankFromPercentile = (typeof rankFromPercentile==="function") ? rankFromPercentile : ((x)=>null);
