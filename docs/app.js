@@ -163,8 +163,8 @@ const state = {
   dataNorthFirst: true, // ✅ row0 is NORTH (fixes flip confusion)
   boundsPad: true,
   // Manual georeferencing tweak (degrees): shifts raster/click mapping without touching data
-  manualLatOffset: -0.27,
-  manualLonOffset: -0.01242,
+  manualLatOffset: Number(localStorage.getItem("manualLatOffset") ?? -0.35),
+  manualLonOffset: Number(localStorage.getItem("manualLonOffset") ?? -0.01242),
 
 };
 
@@ -2616,13 +2616,16 @@ window.__SY.version = "ui-align-v6";
 window.__SY.setFlipY = (v)=>{ state.dataNorthFirst = !!v; try{ renderFromCache(); }catch(_){} }; // true => row0 NORTH
 window.__SY.setRenderFlipY = (v)=>{ state.dataNorthFirst = ! (!!v); try{ renderFromCache(); }catch(_){} }; // legacy: true => row0 SOUTH
 window.__SY.setBoundsPad = (v)=>{ state.boundsPad = !!v; try{ if(state.grid) state.grid.bounds=null; ensureGridBounds(); renderFromCache(); }catch(_){} };
-window.__SY.setOffsets = (dLat, dLon)=>{ state.manualLatOffset = Number(dLat||0); state.manualLonOffset = Number(dLon||0); try{ if(state.grid) state.grid.bounds=null; ensureGridBounds(); renderFromCache(); }catch(e){ console.error(e);} };
+function syncOffsetControls(){ const latEl = $("latOffsetInput"); const lonEl = $("lonOffsetInput"); if(latEl) latEl.value = String(Number(state.manualLatOffset||0)); if(lonEl) lonEl.value = String(Number(state.manualLonOffset||0)); }
+function applyManualOffsets(dLat, dLon, {persist=true, rerender=true} = {}){ state.manualLatOffset = Number(dLat||0); state.manualLonOffset = Number(dLon||0); if(persist){ localStorage.setItem("manualLatOffset", String(state.manualLatOffset)); localStorage.setItem("manualLonOffset", String(state.manualLonOffset)); } syncOffsetControls(); try{ if(state.grid) state.grid.bounds=null; ensureGridBounds(); if(rerender) renderFromCache(); }catch(e){ console.error(e);} return {latOffset: state.manualLatOffset, lonOffset: state.manualLonOffset}; }
+window.__SY.setOffsets = (dLat, dLon)=> applyManualOffsets(dLat, dLon, {persist:true, rerender:true});
+(function wireOffsetControls(){ const latEl = $("latOffsetInput"); const lonEl = $("lonOffsetInput"); const applyBtn = $("applyLatOffsetBtn"); const resetBtn = $("resetLatOffsetBtn"); syncOffsetControls(); applyBtn?.addEventListener("click", ()=>{ applyManualOffsets(Number(latEl?.value ?? state.manualLatOffset), Number(lonEl?.value ?? state.manualLonOffset)); toast(lang==="fa" ? "آفست نقشه اعمال شد" : "Map offset applied", "ok"); }); resetBtn?.addEventListener("click", ()=>{ applyManualOffsets(-0.35, -0.01242); toast(lang==="fa" ? "آفست پیش‌فرض بازنشانی شد" : "Offset reset to default", "ok"); });})();
 window.__SY.suppress = (ms=250)=>{ suppressNextMapClick(ms); return state.__suppressMapClickUntil; };
 window.__SY.getSuppress = ()=> state.__suppressMapClickUntil;
 
 window.__SY.xyToLatLon = xyToLatLon;
 window.__SY.latLonToXY = latLonToXY;
-//...........//
+
 
 window._gridIndexFromLatLon = gridIndexFromLatLon;
 window._rankFromPercentile = (typeof rankFromPercentile==="function") ? rankFromPercentile : ((x)=>null);

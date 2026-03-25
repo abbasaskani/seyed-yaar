@@ -1,8 +1,8 @@
 /* Seyd‑Yaar Service Worker — cache static assets, but ALWAYS refresh dynamic data (latest/ + runs/) */
+const CACHE = "seydyaar-v0.4.1"; // bump this when static UI files change
 
-const CACHE = "seydyaar-v0.4.0"; // bump this when you change SW
-
-// Only STATIC assets here. ❗Do NOT pre-cache latest/* or runs/*
+// Only STATIC assets here.
+// Do NOT pre-cache latest/* or runs/*
 const CORE = [
   "./",
   "./index.html",
@@ -11,7 +11,7 @@ const CORE = [
   "./home.js",
   "./app.js",
   "./manifest.json",
-  "./assets/logo.png"
+  "./assets/logo.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -28,12 +28,7 @@ self.addEventListener("activate", (event) => {
 });
 
 function isDynamic(url) {
-  // GitHub Pages: app is served under /<repo>/
-  // We must keep latest/* and runs/* always fresh.
-  return (
-    url.pathname.includes("/latest/") ||
-    url.pathname.includes("/runs/")
-  );
+  return url.pathname.includes("/latest/") || url.pathname.includes("/runs/");
 }
 
 self.addEventListener("fetch", (event) => {
@@ -41,11 +36,10 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
 
   const url = new URL(req.url);
-
-  // Only handle same-origin requests.
   if (url.origin !== self.location.origin) return;
 
   const acceptHeader = req.headers.get("accept") || "";
+
   if (req.mode === "navigate" || acceptHeader.includes("text/html")) {
     event.respondWith(
       fetch(req).catch(() => caches.match("./app.html") || caches.match("./index.html"))
@@ -53,12 +47,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ✅ Dynamic data: network-first (no-store)
   if (isDynamic(url)) {
     event.respondWith(
       fetch(req, { cache: "no-store" })
         .then((res) => {
-          // Only cache successful responses
           if (res && res.ok) {
             const copy = res.clone();
             caches.open(CACHE).then((c) => c.put(req, copy));
@@ -70,7 +62,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ✅ Static assets: cache-first
   event.respondWith(
     caches.match(req).then((hit) => {
       if (hit) return hit;

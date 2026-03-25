@@ -364,18 +364,22 @@ Example:
       </div>
 
       <details class="details">
-        <summary>Latitude display offset (UI only)</summary>
+        <summary>Map alignment offsets</summary>
         <div class="row two offsetRow">
           <div>
-            <label class="lbl">Lat offset</label>
-            <input id="latOffsetInput" type="number" step="0.01" value="0.27" />
+            <label class="lbl">Lat offset (deg)</label>
+            <input id="latOffsetInput" type="number" step="0.01" value="-0.35" />
           </div>
-          <div class="offsetButtons">
-            <button id="applyLatOffsetBtn" class="btnGhost" type="button">Apply</button>
-            <button id="resetLatOffsetBtn" class="btnGhost" type="button">Reset</button>
+          <div>
+            <label class="lbl">Lon offset (deg)</label>
+            <input id="lonOffsetInput" type="number" step="0.00001" value="-0.01242" />
           </div>
         </div>
-        <div class="muted small">UI only: raw data, exports, and map georeferencing stay unchanged.</div>
+        <div class="row offsetButtons">
+          <button id="applyLatOffsetBtn" class="btnGhost" type="button">Apply</button>
+          <button id="resetLatOffsetBtn" class="btnGhost" type="button">Reset to calibrated default</button>
+        </div>
+        <div class="muted small">These offsets change raster placement and click/georeferencing together. Default calibrated latitude offset is -0.35°.</div>
       </details>
 
       <div class="row">
